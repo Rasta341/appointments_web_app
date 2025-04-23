@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Запись на процедуру</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script>
+    const tg = window.Telegram.WebApp;
+    tg.expand();
+
+    const services = ['Маникюр', 'Педикюр', 'Маникюр + Педикюр'];
+    const hours = Array.from({ length: 9 }, (_, i) => `${10 + i}:00`); // 10:00 - 18:00
+
+    function getMinDate() {
+      const today = new Date();
+      return today.toISOString().split('T')[0];
+    }
+
+    function getMaxDate() {
+      const today = new Date();
+      today.setDate(today.getDate() + 14);
+      return today.toISOString().split('T')[0];
+    }
+
+    function submitForm() {
+      const service = document.getElementById('service').value;
+      const date = document.getElementById('date').value;
+      const time = document.getElementById('time').value;
+
+      if (!service || !date || !time) {
+        alert('Пожалуйста, заполните все поля.');
+        return;
+      }
+
+      const data = { service, date, time };
+      tg.sendData(JSON.stringify(data));
+      tg.close();
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      const serviceSelect = document.getElementById('service');
+      const timeSelect = document.getElementById('time');
+      const dateInput = document.getElementById('date');
+
+      services.forEach(s => {
+        const option = document.createElement('option');
+        option.value = s;
+        option.textContent = s;
+        serviceSelect.appendChild(option);
+      });
+
+      hours.forEach(h => {
+        const option = document.createElement('option');
+        option.value = h;
+        option.textContent = h;
+        timeSelect.appendChild(option);
+      });
+
+      dateInput.min = getMinDate();
+      dateInput.max = getMaxDate();
+    });
+  </script>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      padding: 30px 20px;
+      background: linear-gradient(160deg, #f0f2f5, #d9e4f5);
+      color: #333;
+    }
+
+    h2 {
+      text-align: center;
+      color: #2a2a2a;
+      margin-bottom: 30px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+
+    select,
+    input[type="date"] {
+      width: 100%;
+      padding: 12px;
+      font-size: 16px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      background: #fff;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    }
+
+    button {
+      background: linear-gradient(135deg, #00b4db, #0083b0);
+      color: white;
+      padding: 12px;
+      font-size: 16px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      width: 100%;
+      transition: background 0.3s ease;
+    }
+
+    button:hover {
+      background: linear-gradient(160deg, #ffffff, #d8aaff);
+    }
+  </style>
+</head>
+<body>
+  <h2>Запись на процедуру</h2>
+
+  <div class="form-group">
+    <label for="service">Выберите услугу:</label>
+    <select id="service">
+      <option value="" disabled selected>Выберите услугу...</option>
+    </select>
+  </div>
+
+  <div class="form-group">
+    <label for="date">Выберите дату:</label>
+    <input type="date" id="date" />
+  </div>
+
+  <div class="form-group">
+    <label for="time">Выберите время:</label>
+    <select id="time">
+      <option value="" disabled selected>Выберите время...</option>
+    </select>
+  </div>
+
+  <button onclick="submitForm()">Записаться</button>
+</body>
+</html>
