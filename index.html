@@ -34,12 +34,10 @@
       }
 
       const data = { service, date, time };
-      tg.sendData(JSON.stringify(data));
-      console.log("Данные для отправки: ", data);
-      tg.close();
+      return data;
     }
 
-    window.addEventListener('DOMContentLoaded', () => {
+    window.addEventListener('click', () => {
       const serviceSelect = document.getElementById('service');
       const timeSelect = document.getElementById('time');
       const dateInput = document.getElementById('date');
@@ -60,6 +58,10 @@
 
       dateInput.min = getMinDate();
       dateInput.max = getMaxDate();
+      data = submitForm();
+      tg.sendData(JSON.stringify(data));
+      console.log("Данные для отправки: ", data);
+      tg.close();
     });
   </script>
   <style>
