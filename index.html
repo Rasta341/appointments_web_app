@@ -34,8 +34,8 @@
       }
 
       const data = { service, date, time };
-      console.log(data);
-      tg.sendData(data);
+      tg.sendData(JSON.stringify(data));
+      console.log("Данные для отправки: ", data);
       tg.close();
     }
 
