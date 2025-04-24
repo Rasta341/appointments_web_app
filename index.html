@@ -37,32 +37,38 @@
       return data;
     }
 
-    window.addEventListener('DOMContentLoaded', () => {
-      const serviceSelect = document.getElementById('service');
-      const timeSelect = document.getElementById('time');
-      const dateInput = document.getElementById('date');
+    document.addEventListener('DOMContentLoaded', () => {
+  const serviceSelect = document.getElementById('service');
+  const timeSelect = document.getElementById('time');
+  const dateInput = document.getElementById('date');
+  const submitButton = document.querySelector('button');
 
-      services.forEach(s => {
-        const option = document.createElement('option');
-        option.value = s;
-        option.textContent = s;
-        serviceSelect.appendChild(option);
-      });
+  services.forEach(s => {
+    const option = document.createElement('option');
+    option.value = s;
+    option.textContent = s;
+    serviceSelect.appendChild(option);
+  });
 
-      hours.forEach(h => {
-        const option = document.createElement('option');
-        option.value = h;
-        option.textContent = h;
-        timeSelect.appendChild(option);
-      });
+  hours.forEach(h => {
+    const option = document.createElement('option');
+    option.value = h;
+    option.textContent = h;
+    timeSelect.appendChild(option);
+  });
 
-      dateInput.min = getMinDate();
-      dateInput.max = getMaxDate();
-      data = submitForm();
+  dateInput.min = getMinDate();
+  dateInput.max = getMaxDate();
+
+  submitButton.addEventListener('click', () => {
+    const data = submitForm();
+    if (data) {
       tg.sendData(JSON.stringify(data));
-      console.log("Данные для отправки: ", data);
       tg.close();
-    });
+    }
+  });
+});
+
   </script>
   <style>
     body {
