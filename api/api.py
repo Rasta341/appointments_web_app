@@ -7,10 +7,11 @@ from fastapi.middleware.cors import CORSMiddleware
 
 
 app = FastAPI()
+host_url = config.load_config("host_url")
 # Добавляем CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Разрешаем все источники, для продакшн лучше указать конкретный домен
+    allow_origins=[host_url],  # Разрешаем все источники, для продакшн лучше указать конкретный домен
     allow_credentials=True,
     allow_methods=["*"],  # Разрешаем все методы
     allow_headers=["*"],  # Разрешаем все заголовки
