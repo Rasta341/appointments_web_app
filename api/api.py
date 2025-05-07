@@ -1,11 +1,20 @@
-from fastapi import FastAPI
 from pydantic import BaseModel
-from typing import List, Any, Coroutine
-
+from typing import List
 import config
 from database.db import create_db_connection, get_free_times_from_db, get_booked_dates
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
 
 app = FastAPI()
+# Добавляем CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Разрешаем все источники, для продакшн лучше указать конкретный домен
+    allow_credentials=True,
+    allow_methods=["*"],  # Разрешаем все методы
+    allow_headers=["*"],  # Разрешаем все заголовки
+)
 
 class FreeTimesResponse(BaseModel):
     free_times: List[str]

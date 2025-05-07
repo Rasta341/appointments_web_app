@@ -34,7 +34,6 @@ async def start_handler(message: types.Message):
     keyboard = ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="Записаться", web_app=WebAppInfo(url="https://s975786.ha003.t.mydomain.zone"))]
-            # [KeyboardButton(text="Записаться", web_app=WebAppInfo(url="https://tg-form.webnode.page/"))]
         ],
         resize_keyboard=True
     )
