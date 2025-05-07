@@ -21,6 +21,7 @@ async def create_db_connection():
         logger.error(f"Ошибка подключения к базе данных: {e}")
         return None
 
+
 async def get_booked_dates(db_pool):
     async with db_pool.acquire() as conn:
         # Запрос на проверку занятых дат
