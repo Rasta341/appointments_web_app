@@ -2,7 +2,7 @@ import logging
 from logging.handlers import RotatingFileHandler
 
 
-logger = logging.getLogger("my_logger")
+logger = logging.getLogger("__name__")
 logger.setLevel(logging.INFO)  # Уровень логирования
 # Создаём обработчик с ротацией по размеру
 log_handler = RotatingFileHandler(

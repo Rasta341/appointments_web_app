@@ -1,16 +1,17 @@
-import json
 import asyncio
-
+import json
+import logging
+from datetime import datetime
 import asyncpg
-from aiogram import Bot, Dispatcher, types, F
-from aiogram.client.default import DefaultBotProperties
-from aiogram.enums import ParseMode
-from aiogram.filters import CommandStart
-from aiogram.types import WebAppInfo, ReplyKeyboardMarkup, KeyboardButton
+from aiogram import Bot, Dispatcher, types
+from aiogram.filters import Command
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
+from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
+from aiohttp import web
+import aiohttp
 
-from bot_logger import logger
+import bot_logger
 from config import load_config
-from database.db import book_appointment, create_db_connection
 
 DB_CONFIG = {
     "user": load_config("db_user"),
@@ -19,69 +20,227 @@ DB_CONFIG = {
     "host": load_config("db_host"),
     "port": load_config("db_port")
 }
-TOKEN = load_config("token")
 
-bot = Bot(
-    token=TOKEN,
-    default=DefaultBotProperties(parse_mode=ParseMode.HTML)
-)
+# Настройки
+BOT_TOKEN = load_config("token")
+WEBAPP_URL = load_config("WEBAPP_URL")  # URL вашего WebApp
+API_URL = "http://localhost:8088"  # URL вашего API
+DATABASE_URL = f"postgresql://{load_config("db_user")}:{load_config("db_password")}@{load_config("db_host")}/postgres"
+
+# Инициализация бота и диспетчера
+bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
+# Логирование
+logging.basicConfig(level=logging.INFO)
+logger = bot_logger
 
 
-@dp.message(CommandStart())
-async def start_handler(message: types.Message):
-    keyboard = ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="Записаться", web_app=WebAppInfo(url="https://s975786.ha003.t.mydomain.zone"))]
-        ],
-        resize_keyboard=True
-    )
+# Подключение к базе данных
+async def get_db_connection():
+    return await asyncpg.connect(DATABASE_URL)
+
+
+# Стартовое сообщение с WebApp кнопкой
+@dp.message(Command("start"))
+async def cmd_start(message: types.Message):
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(
+            text="📅 Записаться на маникюр/педикюр",
+            web_app=WebAppInfo(url=WEBAPP_URL)
+        )],
+        [InlineKeyboardButton(
+            text="📋 Мои записи",
+            callback_data="my_appointments"
+        )]
+    ])
 
     await message.answer(
-        f"записаться: ", reply_markup=keyboard
+        "🌸 Добро пожаловать в студию красоты!\n\n"
+        "Здесь вы можете записаться на:\n"
+        "• 💅 Маникюр\n"
+        "• 🦶 Педикюр\n"
+        "• ✨ Комплексный уход\n\n"
+        "Нажмите кнопку ниже для записи:",
+        reply_markup=keyboard
     )
 
-@dp.message(F.web_app_data)
-async def handle_any_message(message: types.Message):
-    pool = dp["db_pool"]
-    if message.web_app_data is None:
-        await message.answer("web_app_data is empty")
-        return
-    if message.web_app_data:
-        print(message.web_app_data.data)
-        try:
-            data = json.loads(message.web_app_data.data)
 
-            service = data["service"]
-            date = data["date"]
-            time = data["time"]
-            user_name = message.from_user.first_name
-            user_id = message.from_user.id
-            print(f"user_data: {service}, {date},{time},{user_name},{user_id}")
+# Показать записи пользователя
+@dp.callback_query(lambda c: c.data == "my_appointments")
+async def show_appointments(callback_query: types.CallbackQuery):
+    telegram_id = callback_query.from_user.id
 
-            if service and date and time:
-                try:
-                    booked = await book_appointment(pool,service,date,time,user_name,user_id)
-                    if booked:
-                        await message.answer(f"✅ Вы успешно записались!\nУслуга: {service}\nДата: {date}\nВремя: {time}")
-                    else:
-                        await message.answer(f"Произошла ошибка")
-                except asyncpg.DataError as e:
-                    logger.error(f"Ошибка в данных: {e}" )
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(f"{API_URL}/appointments/{telegram_id}") as response:
+                if response.status == 200:
+                    appointments = await response.json()
 
-        except Exception as e:
-            await message.answer(f"❌ Ошибка при обработке данных: {e}")
-        return
-    # если это не WebApp сообщение
-    await message.answer("👋 Нажмите на кнопку ниже, для записи.")
+                    if not appointments:
+                        await callback_query.message.edit_text(
+                            "📅 У вас пока нет записей.\n"
+                            "Нажмите /start чтобы записаться!"
+                        )
+                        return
+
+                    text = "📋 Ваши записи:\n\n"
+                    keyboard_buttons = []
+
+                    for apt in appointments:
+                        service_names = {
+                            'manicure': '💅 Маникюр',
+                            'pedicure': '🦶 Педикюр',
+                            'both': '✨ Маникюр + Педикюр'
+                        }
+
+                        status_emoji = {
+                            'pending': '⏳',
+                            'confirmed': '✅',
+                            'cancelled': '❌'
+                        }
+
+                        date = datetime.strptime(apt['appointment_date'], '%Y-%m-%d').strftime('%d.%m.%Y')
+
+                        text += f"{apt['id']}. {status_emoji.get(apt['status'], '⏳')} {service_names.get(apt['service_type'], apt['service_type'])}\n"
+                        text += f"📅 {date} в {apt['appointment_time']}\n"
+                        text += f"Статус: {apt['status']}\n\n"
+
+                        # Добавляем кнопку отмены только для активных записей
+                        if apt['status'] in ['pending', 'confirmed']:
+                            keyboard_buttons.append([
+                                InlineKeyboardButton(
+                                    text=f"❌ Отменить запись: {apt['id']}",
+                                    callback_data=f"cancel_{apt['id']}"
+                                )
+                            ])
+
+                    keyboard_buttons.append([
+                        InlineKeyboardButton(
+                            text="📅 Записаться еще",
+                            web_app=WebAppInfo(url=WEBAPP_URL)
+                        )
+                    ])
+
+                    keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
+
+                    await callback_query.message.edit_text(text, reply_markup=keyboard)
+                else:
+                    await callback_query.message.edit_text(
+                        "❌ Ошибка получения записей. Попробуйте позже."
+                    )
+
+    except Exception as e:
+        logger.error(f"Ошибка получения записей: {e}")
+        await callback_query.message.edit_text(
+            "❌ Произошла ошибка. Попробуйте позже."
+        )
 
 
+# Отмена записи
+@dp.callback_query(lambda c: c.data.startswith("cancel_"))
+async def cancel_appointment(callback_query: types.CallbackQuery):
+    appointment_id = int(callback_query.data.split("_")[1])
+    telegram_id = callback_query.from_user.id
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.delete(
+                    f"{API_URL}/appointments/{appointment_id}",
+                    params={"telegram_id": telegram_id}
+            ) as response:
+                if response.status == 200:
+                    await callback_query.answer("✅ Запись отменена")
+                    # Обновляем список записей
+                    await show_appointments(callback_query)
+                else:
+                    await callback_query.answer("❌ Ошибка отмены записи")
+
+    except Exception as e:
+        logger.error(f"Ошибка отмены записи: {e}")
+        await callback_query.answer("❌ Произошла ошибка")
+
+
+# Обработка данных от WebApp
+@dp.message(lambda message: message.web_app_data)
+async def handle_webapp_data(message: types.Message):
+    try:
+        data = json.loads(message.web_app_data.data)
+
+        if data.get('action') == 'booking_confirmed':
+            service_names = {
+                'manicure': '💅 Маникюр',
+                'pedicure': '🦶 Педикюр',
+                'both': '✨ Маникюр + Педикюр'
+            }
+
+            date = datetime.strptime(data['appointment_date'], '%Y-%m-%d').strftime('%d.%m.%Y')
+            service = service_names.get(data['service_type'], data['service_type'])
+
+            confirmation_text = (
+                f"✅ Запись подтверждена!\n\n"
+                f"🎯 Услуга: {service}\n"
+                f"📅 Дата: {date}\n"
+                f"⏰ Время: {data['appointment_time']}\n"
+                f"🔢 Номер записи: {data['appointment_id']}\n\n"
+                f"📍 Ждем вас в нашей студии!\n"
+                f"При необходимости отменить запись, используйте команду /start"
+            )
+
+            keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(
+                    text="📋 Мои записи",
+                    callback_data="my_appointments"
+                )],
+                [InlineKeyboardButton(
+                    text="📅 Записаться еще",
+                    web_app=WebAppInfo(url=WEBAPP_URL)
+                )]
+            ])
+
+            await message.answer(confirmation_text, reply_markup=keyboard)
+
+            # Отправляем уведомление администратору (опционально)
+            ADMIN_CHAT_ID = load_config("admin_id")  # ID чата администратора
+            admin_text = f"🔔 Новая запись!\n\nПользователь: @{message.from_user.username}\nУслуга: {service}\nДата: {date}\nВремя: {data['appointment_time']}"
+            await bot.send_message(ADMIN_CHAT_ID, admin_text)
+
+    except Exception as e:
+        logger.error(f"Ошибка обработки данных WebApp: {e}")
+        await message.answer("❌ Произошла ошибка при обработке записи.")
+
+
+# Команда для получения списка записей
+@dp.message(Command("appointments"))
+async def cmd_appointments(message: types.Message):
+    fake_callback = types.CallbackQuery(
+        id="fake",
+        from_user=message.from_user,
+        chat_instance="fake",
+        message=message,
+        data="my_appointments"
+    )
+    await show_appointments(fake_callback)
+
+
+# Webhook handler
+async def webhook_handler(request):
+    try:
+        bot_instance = request.app["bot"]
+        update = types.Update.model_validate(await request.json(), strict=False)
+        await dp.feed_update(bot_instance, update)
+        return web.Response(status=200)
+    except Exception as e:
+        logger.error(f"Webhook error: {e}")
+        return web.Response(status=500)
+
+
+# Главная функция
 async def main():
-    pool = await create_db_connection()
-    dp["db_pool"] = pool
-    await bot.delete_webhook(drop_pending_updates=True)
-    print("Бот запущен...")
+    # Настройка webhook (если используете)
+    # await bot.set_webhook(f"https://your-domain.com/webhook/{BOT_TOKEN}")
+
+    # Или polling
     await dp.start_polling(bot)
 
 
