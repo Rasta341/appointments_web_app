@@ -37,7 +37,7 @@ if not logger.handlers:
     logger.addHandler(console_handler)
 
 # Предотвращаем распространение логов к родительским логгерам
-logger.propagate = False
+logger.propagate = True
 
 
 def get_logger(name: str = None) -> logging.Logger:
