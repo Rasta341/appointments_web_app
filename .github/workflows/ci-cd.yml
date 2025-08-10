@@ -66,7 +66,7 @@ jobs:
         port: ${{ secrets.PORT }}
         script: |
           # Переходим в директорию проекта
-          cd /path/to/your/nail-salon-project
+          cd ./appointments_web_app
           
           # Обновляем код
           git pull origin main
