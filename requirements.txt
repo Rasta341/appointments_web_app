@@ -6,3 +6,5 @@ DateTime~=5.5
 dotenv~=0.9.9
 python-dotenv~=1.1.0
 uvicorn~=0.34.2
+aiohttp~=3.11.18
+pytest~=8.4.1

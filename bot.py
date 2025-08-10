@@ -6,26 +6,17 @@ import asyncpg
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
-from aiogram.webhook.aiohttp_server import SimpleRequestHandler, setup_application
 from aiohttp import web
 import aiohttp
 
 import bot_logger
 from config import load_config
 
-DB_CONFIG = {
-    "user": load_config("db_user"),
-    "password": load_config("db_password"),
-    "database": load_config("db_name"),
-    "host": load_config("db_host"),
-    "port": load_config("db_port")
-}
-
 # Настройки
 BOT_TOKEN = load_config("token")
 WEBAPP_URL = load_config("WEBAPP_URL")  # URL вашего WebApp
-API_URL = "http://localhost:8088"  # URL вашего API
-DATABASE_URL = f"postgresql://{load_config("db_user")}:{load_config("db_password")}@{load_config("db_host")}/postgres"
+API_URL = "http://nail_salon_api:8088"  # URL вашего API
+# DATABASE_URL = f"postgresql://{load_config("DB_USER")}:{load_config("DB_PASSWORD")}@{load_config("DB_HOST")}/postgres"
 
 # Инициализация бота и диспетчера
 bot = Bot(token=BOT_TOKEN)
@@ -37,8 +28,8 @@ logger = bot_logger
 
 
 # Подключение к базе данных
-async def get_db_connection():
-    return await asyncpg.connect(DATABASE_URL)
+# async def get_db_connection():
+#     return await asyncpg.connect(DATABASE_URL)
 
 
 # Стартовое сообщение с WebApp кнопкой
