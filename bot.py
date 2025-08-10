@@ -2,7 +2,6 @@ import asyncio
 import json
 import logging
 from datetime import datetime
-import asyncpg
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
@@ -15,8 +14,8 @@ from config import load_config
 # Настройки
 BOT_TOKEN = load_config("token")
 WEBAPP_URL = load_config("WEBAPP_URL")  # URL вашего WebApp
-API_URL = "http://nail_salon_api:8088"  # URL вашего API
-# DATABASE_URL = f"postgresql://{load_config("DB_USER")}:{load_config("DB_PASSWORD")}@{load_config("DB_HOST")}/postgres"
+API_URL = load_config("API_URL")  # URL вашего API
+
 
 # Инициализация бота и диспетчера
 bot = Bot(token=BOT_TOKEN)
@@ -25,11 +24,6 @@ dp = Dispatcher()
 # Логирование
 logging.basicConfig(level=logging.INFO)
 logger = bot_logger
-
-
-# Подключение к базе данных
-# async def get_db_connection():
-#     return await asyncpg.connect(DATABASE_URL)
 
 
 # Стартовое сообщение с WebApp кнопкой

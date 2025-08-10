@@ -8,12 +8,15 @@ from typing import List
 import sys
 import os
 
+import bot_logger
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from bot_logger import get_logger
 from database import db
 
-logger = get_logger("api")
-
+# Логирование
+logging.basicConfig(level=logging.INFO)
+logger = bot_logger
 
 # Контекстный менеджер для жизненного цикла приложения
 @asynccontextmanager
@@ -50,13 +53,6 @@ class AppointmentCreate(BaseModel):
     service_type: str  # 'manicure', 'pedicure', 'both'
     appointment_date: date
     appointment_time: time
-
-    @field_validator('service_type')
-    def validate_service_type(cls, v):
-        allowed_types = ['manicure', 'pedicure', 'both']
-        if v not in allowed_types:
-            raise ValueError(f'service_type must be one of: {allowed_types}')
-        return v
 
     @field_validator('appointment_date')
     def validate_appointment_date(cls, v):
