@@ -1,18 +1,12 @@
-import logging
-
 import asyncpg
 from contextlib import asynccontextmanager
 from typing import List, Dict, Any, Optional
 from datetime import date, time
 
-import bot_logger
 from config import load_config
 from bot_logger import get_logger
 
-# Логирование
-logging.basicConfig(level=logging.INFO)
-logger = bot_logger
-
+logger = get_logger("database")
 # Конфигурация базы данных
 DATABASE_URL = f"postgresql://{load_config('DB_USER')}:{load_config('DB_PASSWORD')}@{load_config('DB_HOST')}/postgres"
 

@@ -1,4 +1,3 @@
-import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -8,15 +7,11 @@ from typing import List
 import sys
 import os
 
-import bot_logger
-
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from bot_logger import get_logger
 from database import db
 
-# Логирование
-logging.basicConfig(level=logging.INFO)
-logger = bot_logger
+logger = get_logger("api")
 
 # Контекстный менеджер для жизненного цикла приложения
 @asynccontextmanager

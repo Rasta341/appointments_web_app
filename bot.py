@@ -1,6 +1,5 @@
 import asyncio
 import json
-import logging
 from datetime import datetime
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
@@ -8,7 +7,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 from aiohttp import web
 import aiohttp
 
-import bot_logger
+from bot_logger import get_logger
 from config import load_config
 
 # Настройки
@@ -22,9 +21,9 @@ bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
 # Логирование
-logging.basicConfig(level=logging.INFO)
-logger = bot_logger
-
+# logging.basicConfig(level=logging.INFO)
+# logger = bot_logger
+logger = get_logger("bot")
 
 # Стартовое сообщение с WebApp кнопкой
 @dp.message(Command("start"))
