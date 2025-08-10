@@ -75,16 +75,16 @@ jobs:
           echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
           
           # Останавливаем контейнеры
-          docker-compose down
+          docker compose down
           
           # Подтягиваем новый образ
           docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
           
           # Запускаем контейнеры
-          docker-compose up -d
+          docker compose up -d
           
           # Проверяем статус
-          docker-compose ps
+          docker compose ps
           
           # Очистка неиспользуемых образов
           docker image prune -f
