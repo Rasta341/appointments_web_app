@@ -132,6 +132,7 @@ async def create_appointment(appointment: Appointment):
         )
 
         await send_message_to_admin(appointment)
+        logger.info(f"sended notify to admin: {appointment}")
 
         return {
             "success": True,
