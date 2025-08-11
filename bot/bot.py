@@ -7,7 +7,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 from aiohttp import web
 import aiohttp
 
-from logger.bot_logger import get_logger
+from ..logger.bot_logger import get_logger
 from config import load_config
 
 # Настройки

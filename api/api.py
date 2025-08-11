@@ -7,10 +7,10 @@ from typing import List
 import sys
 import os
 
-from bot.bot import send_message_to_admin
+from ..bot.bot import send_message_to_admin
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from logger.bot_logger import get_logger
+from ..logger.bot_logger import get_logger
 from database import db
 
 logger = get_logger("api")
