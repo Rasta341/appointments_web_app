@@ -52,13 +52,12 @@ CREATE TABLE IF NOT EXISTS reminders (
     reminder_time TIMESTAMP NOT NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'pending',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    sent_at TIMESTAMP NULL,
+    sent_at TIMESTAMP NULL);
 
     -- Индексы для производительности
-    INDEX idx_reminders_status_time (status, reminder_time),
-    INDEX idx_reminders_telegram_id (telegram_id),
-    INDEX idx_reminders_appointment (telegram_id, appointment_date)
-);
+    CREATE INDEX IF NOT EXISTS idx_reminders_status_time on reminders(status, reminder_time);
+    CREATE INDEX IF NOT EXISTS idx_reminders_telegram_id on reminders(telegram_id);
+    CREATE INDEX IF NOT EXISTS idx_reminders_appointment on reminders(telegram_id, appointment_date);
 
 -- Добавляем проверочные ограничения
 ALTER TABLE reminders
