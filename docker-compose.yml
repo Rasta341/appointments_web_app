@@ -9,7 +9,6 @@ services:
       POSTGRES_DB: postgres
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
-      PYTHONPATH: /app
     ports:
       - "127.0.0.1:5432:5432"  # Bind только к localhost
     volumes:
