@@ -235,7 +235,7 @@ class UserRepository:
     def __init__(self, db_manager: DatabaseManager):
         self.db_manager = db_manager
 
-    async def create_user(self, telegram_id: int, username, first_name, last_name) -> bool:
+    async def create_user(self, telegram_id: int, username, first_name, last_name):
         """Создание пользователя"""
         async with self.db_manager.get_connection() as conn:
             query = """
@@ -260,6 +260,7 @@ class UserRepository:
                     """
 
             row = await conn.fetchrow(query, telegram_id)
+
             if row:
                 return {
                     "telegram_id": row['telegram_id'],
