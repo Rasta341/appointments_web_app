@@ -7,6 +7,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 from aiohttp import web
 import aiohttp
 
+from api.api import Appointment
 from bot_logger import get_logger
 from config import load_config
 
@@ -184,10 +185,7 @@ async def handle_webapp_data(message: types.Message):
 
             await message.answer(confirmation_text, reply_markup=keyboard)
 
-            # Отправляем уведомление администратору (опционально)
-            ADMIN_CHAT_ID = load_config("admin_id")  # ID чата администратора
-            admin_text = f"🔔 Новая запись!\n\nПользователь: @{message.from_user.username}\nУслуга: {service}\nДата: {date}\nВремя: {data['appointment_time']}"
-            await bot.send_message(ADMIN_CHAT_ID, admin_text)
+
 
     except Exception as e:
         logger.error(f"Ошибка обработки данных WebApp: {e}")
@@ -206,6 +204,15 @@ async def cmd_appointments(message: types.Message):
     )
     await show_appointments(fake_callback)
 
+async def send_message_to_admin(appointment: Appointment):
+    client_id = appointment.telegram_id,
+    service = appointment.service_type,
+    date = appointment.appointment_date,
+    time = appointment.appointment_time
+    # Отправляем уведомление администратору
+    admin_chat_id = load_config("admin_id")  # ID чата администратора
+    admin_text = f"🔔 Новая запись!\n\nПользователь: @{client_id}\nУслуга: {service}\nДата: {date}\nВремя: {time}"
+    await bot.send_message(admin_chat_id, admin_text)
 
 # Webhook handler
 async def webhook_handler(request):
@@ -221,10 +228,6 @@ async def webhook_handler(request):
 
 # Главная функция
 async def main():
-    # Настройка webhook (если используете)
-    # await bot.set_webhook(f"https://your-domain.com/webhook/{BOT_TOKEN}")
-
-    # Или polling
     await dp.start_polling(bot)
 
 

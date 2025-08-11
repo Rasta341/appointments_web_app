@@ -7,6 +7,8 @@ from typing import List
 import sys
 import os
 
+from bot import send_message_to_admin
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from bot_logger import get_logger
 from database import db
@@ -43,7 +45,7 @@ app.add_middleware(
 
 
 # Модели данных
-class AppointmentCreate(BaseModel):
+class Appointment(BaseModel):
     telegram_id: int
     service_type: str  # 'manicure', 'pedicure', 'both'
     appointment_date: date
@@ -109,7 +111,7 @@ async def get_available_slots(raw_date: str):
 
 
 @app.post("/appointments")
-async def create_appointment(appointment: AppointmentCreate):
+async def create_appointment(appointment: Appointment):
     """Создание новой записи"""
     try:
         # Проверяем доступность слота
@@ -128,6 +130,8 @@ async def create_appointment(appointment: AppointmentCreate):
             appointment.appointment_date,
             appointment.appointment_time
         )
+
+        await send_message_to_admin(appointment)
 
         return {
             "success": True,
