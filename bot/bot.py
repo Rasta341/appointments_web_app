@@ -234,7 +234,7 @@ async def send_message_to_admin(appointment):
     time = appointment.appointment_time
     # Отправляем уведомление администратору
     admin_chat_id = load_config("admin_id")  # ID чата администратора
-    admin_text = f"🔔 Новая запись!\n\nПользователь: @{client['username']|''}:{client['first_name']|''}\nУслуга: {service}\nДата: {date}\nВремя: {time}"
+    admin_text = f"🔔 Новая запись!\n\nПользователь: @{client['username'] or ''}:{client['first_name'] or ''}\nУслуга: {service}\nДата: {date}\nВремя: {time}"
     try:
         await bot.send_message(admin_chat_id, admin_text)
     except Exception as e:
