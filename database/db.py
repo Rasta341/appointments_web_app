@@ -100,7 +100,7 @@ class AppointmentRepository:
                     WHERE appointment_date = $1
                       AND status != 'cancelled'
                     GROUP BY appointment_time
-                    HAVING COUNT(*) >= 1 \
+                    HAVING COUNT(*) >= 1
                     """
 
             rows = await conn.fetch(query, target_date)
@@ -110,7 +110,7 @@ class AppointmentRepository:
             available_slots = [slot for slot in all_slots if slot not in booked_times]
 
             return {
-                "date": target_date,
+                "date": target_date.isoformat(),
                 "available_slots": available_slots,
                 "booked_slots": booked_times
             }
