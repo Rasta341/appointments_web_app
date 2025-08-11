@@ -1,3 +1,7 @@
+import datetime
+from dataclasses import dataclass
+from enum import Enum
+
 import asyncpg
 from contextlib import asynccontextmanager
 from typing import List, Dict, Any, Optional
@@ -228,6 +232,12 @@ class AppointmentRepository:
                 }
             return None
 
+    async def check_appointment_exists(self, user_id, appointment_date):
+        # Проверяем, существует ли запись
+        async with self.db_manager.get_connection() as conn:
+            query = "SELECT user_id FROM appointments WHERE user_id = $1 AND appointment_date = $2"
+            record = await conn.fetchrow(query, user_id, appointment_date)
+            return record
 
 class UserRepository:
     """Репозиторий для работы с пользователями"""
@@ -271,9 +281,125 @@ class UserRepository:
             return None
 
 
+class ReminderStatus(Enum):
+    PENDING = "pending"
+    SENT = "sent"
+    CANCELLED = "cancelled"
+
+
+@dataclass
+class ReminderRecord:
+    id: int
+    telegram_id: int
+    appointment_date: datetime.date
+    appointment_time: datetime.time
+    reminder_time: datetime.datetime
+    status: ReminderStatus
+    created_at: datetime.datetime
+
+class ReminderRepository:
+    """Репозиторий для работы с напоминаниями в БД"""
+
+    def __init__(self, db_manager):
+        self.db_manager = db_manager
+
+    async def create_reminder(self, telegram_id: int, appointment_date: datetime.date,
+                              appointment_time: datetime.time) -> bool:
+        """Создает напоминание в БД"""
+        async with self.db_manager.get_connection() as conn:
+            try:
+                # Вычисляем время напоминания (день до записи в 18:00)
+                reminder_time = datetime.datetime.combine(
+                    appointment_date, datetime.time(18, 0)
+                ) - datetime.timedelta(days=1)
+
+                query = """
+                    INSERT INTO reminders (telegram_id, appointment_date, appointment_time, 
+                                         reminder_time, status, created_at)
+                    VALUES ($1, $2, $3, $4, $5, $6)
+                """
+                await conn.execute(
+                    query,
+                    telegram_id, appointment_date, appointment_time,
+                    reminder_time, ReminderStatus.PENDING.value, datetime.datetime.now()
+                )
+                logger.info(f"Создано напоминание для пользователя {telegram_id} на {reminder_time}")
+                return True
+
+            except Exception as e:
+                logger.error(f"Ошибка создания напоминания: {e}")
+                return False
+
+    async def get_pending_reminders(self, current_time: datetime.datetime) -> List[ReminderRecord]:
+        """Получает напоминания, которые нужно отправить"""
+        async with self.db_manager.get_connection() as conn:
+            try:
+                query = """
+                    SELECT id, telegram_id, appointment_date, appointment_time, 
+                           reminder_time, status, created_at
+                    FROM reminders 
+                    WHERE status = $1 AND reminder_time <= $2
+                    ORDER BY reminder_time
+                """
+                rows = await conn.fetch(query, ReminderStatus.PENDING.value, current_time)
+
+                reminders = []
+                for row in rows:
+                    reminders.append(ReminderRecord(
+                        id=row['id'],
+                        telegram_id=row['telegram_id'],
+                        appointment_date=row['appointment_date'],
+                        appointment_time=row['appointment_time'],
+                        reminder_time=row['reminder_time'],
+                        status=ReminderStatus(row['status']),
+                        created_at=row['created_at']
+                    ))
+
+                return reminders
+
+            except Exception as e:
+                logger.error(f"Ошибка получения напоминаний: {e}")
+                return []
+
+    async def mark_reminder_sent(self, reminder_id: int) -> bool:
+        """Помечает напоминание как отправленное"""
+        async with self.db_manager.get_connection() as conn:
+            try:
+                query = "UPDATE reminders SET status = $1, sent_at = $2 WHERE id = $3"
+                await conn.execute(query, ReminderStatus.SENT.value, datetime.datetime.now(), reminder_id)
+                return True
+            except Exception as e:
+                logger.error(f"Ошибка обновления статуса напоминания {reminder_id}: {e}")
+                return False
+
+    async def cancel_reminders_for_appointment(self, telegram_id: int,
+                                               appointment_date: datetime.date) -> bool:
+        """Отменяет напоминания при отмене записи"""
+        async with self.db_manager.get_connection() as conn:
+            try:
+                query = """
+                    UPDATE reminders 
+                    SET status = $1 
+                    WHERE telegram_id = $2 AND appointment_date = $3 AND status = $4
+                """
+                await conn.execute(
+                    query,
+                    ReminderStatus.CANCELLED.value,
+                    telegram_id,
+                    appointment_date,
+                    ReminderStatus.PENDING.value
+                )
+                logger.info(f"Отменены напоминания для пользователя {telegram_id} на {appointment_date}")
+                return True
+            except Exception as e:
+                logger.error(f"Ошибка отмены напоминаний: {e}")
+                return False
+
+
 # Создаем экземпляры репозиториев
 appointment_repo = AppointmentRepository(db_manager)
 user_repo = UserRepository(db_manager)
+reminder_repo = ReminderRepository(db_manager)
 
 
 # Функции для управления жизненным циклом БД

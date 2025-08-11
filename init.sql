@@ -1,5 +1,4 @@
 -- Инициализация базы данных для Nail Salon
--- Создание таблиц по структуре из скриншотов
 
 -- Создание таблицы appointments
 CREATE TABLE IF NOT EXISTS appointments (
@@ -43,6 +42,28 @@ BEGIN
     RETURN NEW;
 END;
 $$ language 'plpgsql';
+
+-- Создание таблицы для напоминаний
+CREATE TABLE IF NOT EXISTS reminders (
+    id SERIAL PRIMARY KEY,
+    telegram_id BIGINT NOT NULL,
+    appointment_date DATE NOT NULL,
+    appointment_time TIME NOT NULL,
+    reminder_time TIMESTAMP NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    sent_at TIMESTAMP NULL,
+
+    -- Индексы для производительности
+    INDEX idx_reminders_status_time (status, reminder_time),
+    INDEX idx_reminders_telegram_id (telegram_id),
+    INDEX idx_reminders_appointment (telegram_id, appointment_date)
+);
+
+-- Добавляем проверочные ограничения
+ALTER TABLE reminders
+ADD CONSTRAINT chk_reminder_status
+CHECK (status IN ('pending', 'sent', 'cancelled'));
 
 -- Вставка тестовых данных (опционально)
 -- INSERT INTO users (telegram_id, username, first_name, last_name, phone) 

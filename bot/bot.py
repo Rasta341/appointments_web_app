@@ -8,9 +8,10 @@ from aiohttp import web
 import aiohttp
 
 from database import db
-from database.db import DatabaseManager, UserRepository
+from database.db import user_repo, reminder_repo
 from logger.bot_logger import get_logger
 from config import load_config
+from notifier.reminder import ReminderScheduler
 
 # Настройки
 BOT_TOKEN = load_config("token")
@@ -27,8 +28,7 @@ dp = Dispatcher()
 # logger = bot_logger
 logger = get_logger("bot")
 
-db_manager = DatabaseManager(db.DATABASE_URL)
-user_repo = UserRepository(db_manager)
+user_repo = user_repo
 
 # Стартовое сообщение с WebApp кнопкой
 @dp.message(Command("start"))
@@ -255,6 +255,8 @@ async def webhook_handler(request):
 # Главная функция
 async def main():
     await dp.start_polling(bot)
+    scheduler = ReminderScheduler(bot, reminder_repo, user_repo)
+    await scheduler.start()
 
 
 if __name__ == "__main__":
