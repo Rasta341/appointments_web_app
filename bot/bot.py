@@ -7,6 +7,8 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 from aiohttp import web
 import aiohttp
 
+from database import db
+from database.db import DatabaseManager, UserRepository
 from logger.bot_logger import get_logger
 from config import load_config
 
@@ -25,6 +27,9 @@ dp = Dispatcher()
 # logger = bot_logger
 logger = get_logger("bot")
 
+db_manager = DatabaseManager(db.DATABASE_URL)
+user_repo = UserRepository(db_manager)
+
 # Стартовое сообщение с WebApp кнопкой
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
@@ -38,6 +43,12 @@ async def cmd_start(message: types.Message):
             callback_data="my_appointments"
         )]
     ])
+    user = message.from_user
+    try:
+        user_created = await user_repo.create_user(telegram_id=user.id, username=user.username, first_name=user.first_name, last_name=user.last_name)
+        logger.info(user_created)
+    except Exception as e:
+        logger.error(e)
 
     await message.answer(
         "🌸 Добро пожаловать в студию красоты!\n\n"
@@ -204,14 +215,17 @@ async def cmd_appointments(message: types.Message):
     await show_appointments(fake_callback)
 
 async def send_message_to_admin(appointment):
-    client_id = appointment.telegram_id,
+    client = user_repo.get_user(appointment.telegram_id),
     service = appointment.service_type,
     date = appointment.appointment_date,
     time = appointment.appointment_time
     # Отправляем уведомление администратору
     admin_chat_id = load_config("admin_id")  # ID чата администратора
-    admin_text = f"🔔 Новая запись!\n\nПользователь: @{client_id}\nУслуга: {service}\nДата: {date}\nВремя: {time}"
-    await bot.send_message(admin_chat_id, admin_text)
+    admin_text = f"🔔 Новая запись!\n\nПользователь: @{client}\nУслуга: {service}\nДата: {date}\nВремя: {time}"
+    try:
+        await bot.send_message(admin_chat_id, admin_text)
+    except Exception as e:
+        logger.error(e)
 
 # Webhook handler
 async def webhook_handler(request):

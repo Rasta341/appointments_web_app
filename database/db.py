@@ -235,16 +235,19 @@ class UserRepository:
     def __init__(self, db_manager: DatabaseManager):
         self.db_manager = db_manager
 
-    async def create_user(self, telegram_id: int) -> bool:
+    async def create_user(self, telegram_id: int, username, first_name, last_name) -> bool:
         """Создание пользователя"""
         async with self.db_manager.get_connection() as conn:
             query = """
-                    INSERT INTO users (telegram_id)
-                    VALUES ($1)
+                    INSERT INTO users (telegram_id, username, first_name, last_name)
+                    VALUES ($1, $2, $3, $4)
                     ON CONFLICT (telegram_id) DO NOTHING
                     RETURNING telegram_id \
                     """
-            result = await conn.fetchval(query, telegram_id)
+            try:
+                result = await conn.fetchval(query, telegram_id, username, first_name, last_name)
+            except Exception as e:
+                logger.error(e)
             return result is not None
 
     async def get_user(self, telegram_id: int) -> Optional[Dict[str, Any]]:
