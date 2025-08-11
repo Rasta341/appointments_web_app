@@ -68,7 +68,7 @@ jobs:
           cd ./appointments_web_app
           
           # Обновляем код
-          git pull origin main
+          git pull origin master
           
           # Логинимся в GitHub Container Registry
           echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
