@@ -91,7 +91,7 @@ class AppointmentRepository:
         """Получение доступных слотов для конкретной даты"""
         async with self.db_manager.get_connection() as conn:
             # Все возможные временные слоты
-            all_slots = load_config("work_hours").split(",")
+            all_slots = ["10:00","12:00","14:00","16:00","18:00"]
 
             # Получаем занятые слоты на эту дату
             query = """
