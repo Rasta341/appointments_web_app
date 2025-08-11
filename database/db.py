@@ -242,7 +242,7 @@ class UserRepository:
                     INSERT INTO users (telegram_id, username, first_name, last_name)
                     VALUES ($1, $2, $3, $4)
                     ON CONFLICT (telegram_id) DO NOTHING
-                    RETURNING telegram_id \
+                    RETURNING telegram_id 
                     """
             try:
                 result = await conn.fetchval(query, telegram_id, username, first_name, last_name)
@@ -254,16 +254,18 @@ class UserRepository:
         """Получение пользователя по telegram_id"""
         async with self.db_manager.get_connection() as conn:
             query = """
-                    SELECT telegram_id, created_at
+                    SELECT telegram_id, username, first_name, last_name
                     FROM users
-                    WHERE telegram_id = $1 \
+                    WHERE telegram_id = $1 
                     """
 
             row = await conn.fetchrow(query, telegram_id)
             if row:
                 return {
                     "telegram_id": row['telegram_id'],
-                    "created_at": row['created_at']
+                    "username": row['username'],
+                    "first_name":row['first_name'],
+                    "last_name":row['last_name']
                 }
             return None
 
