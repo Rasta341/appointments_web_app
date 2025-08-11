@@ -223,8 +223,8 @@ async def send_message_to_admin(appointment):
     }
 
     service_russian = service_translations.get(
-        appointment.service_type,
-        appointment.service_type
+        str(appointment.service_type),
+        str(appointment.service_type)
     )
 
     client = await user_repo.get_user(appointment.telegram_id)
