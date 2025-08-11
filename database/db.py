@@ -4,7 +4,7 @@ from typing import List, Dict, Any, Optional
 from datetime import date, time
 
 from config import load_config
-from bot_logger import get_logger
+from logger.bot_logger import get_logger
 
 logger = get_logger("database")
 # Конфигурация базы данных

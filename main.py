@@ -1,5 +1,5 @@
 import asyncio
-import bot_logger
+from logger import bot_logger
 import os
 import sys
 from pathlib import Path
