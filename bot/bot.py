@@ -215,7 +215,7 @@ async def cmd_appointments(message: types.Message):
     await show_appointments(fake_callback)
 
 async def send_message_to_admin(appointment):
-    client = user_repo.get_user(appointment.telegram_id),
+    client = await user_repo.get_user(appointment.telegram_id),
     service = appointment.service_type,
     date = appointment.appointment_date,
     time = appointment.appointment_time
