@@ -29,6 +29,9 @@ services:
           cpus: '0.5'
 
   api:
+    build:
+      context: .
+      dockerfile: Dockerfile
     image: ghcr.io/rasta341/appointments_web_app:latest
     container_name: nail_salon_api
     restart: always
@@ -62,6 +65,9 @@ services:
           cpus: '0.5'
 
   bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
     image: ghcr.io/rasta341/appointments_web_app:latest
     container_name: nail_salon_bot
     restart: always

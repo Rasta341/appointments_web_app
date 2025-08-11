@@ -64,26 +64,10 @@ jobs:
         key: ${{ secrets.PRIVATE_KEY }}
         port: ${{ secrets.PORT }}
         script: |
-          # Переходим в директорию проекта
           cd ./appointments_web_app
-          
-          # Обновляем код
           git pull origin master
-          
-          # Логинимся в GitHub Container Registry
           echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-          
-          # Останавливаем контейнеры
-          docker compose down
-          
-          # Подтягиваем новый образ
-          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-          
-          # Запускаем контейнеры
-          docker compose up --build -d
-          
-          # Проверяем статус
+          docker compose pull
+          docker compose up -d --force-recreate
           docker compose ps
-          
-          # Очистка неиспользуемых образов
           docker image prune -f
