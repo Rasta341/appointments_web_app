@@ -96,7 +96,7 @@ services:
       - postgres
     networks:
       - nail_network
-    command: ["python", "bot.py"]
+    command: ["python", "bot/bot.py"]
     deploy:
       resources:
         limits:

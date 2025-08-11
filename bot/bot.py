@@ -7,7 +7,6 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 from aiohttp import web
 import aiohttp
 
-from api.api import Appointment
 from bot_logger import get_logger
 from config import load_config
 
@@ -204,7 +203,7 @@ async def cmd_appointments(message: types.Message):
     )
     await show_appointments(fake_callback)
 
-async def send_message_to_admin(appointment: Appointment):
+async def send_message_to_admin(appointment):
     client_id = appointment.telegram_id,
     service = appointment.service_type,
     date = appointment.appointment_date,
