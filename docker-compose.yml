@@ -9,6 +9,7 @@ services:
       POSTGRES_DB: postgres
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
+      PYTHONPATH: /app
     ports:
       - "127.0.0.1:5432:5432"  # Bind только к localhost
     volumes:
@@ -41,6 +42,7 @@ services:
       - API_HOST=0.0.0.0
       - API_PORT=8088
       - ENVIRONMENT=production
+      - PYTHONPATH=/app
     env_file:
       - .env
     ports:
@@ -72,6 +74,7 @@ services:
       - DB_PASSWORD=${DB_PASSWORD}
       - API_URL=http://api:8088
       - ENVIRONMENT=production
+      - PYTHONPATH=/app
     env_file:
       - .env
     volumes:
