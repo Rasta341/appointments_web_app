@@ -91,7 +91,7 @@ class AppointmentRepository:
         """Получение доступных слотов для конкретной даты"""
         async with self.db_manager.get_connection() as conn:
             # Все возможные временные слоты
-            all_slots = ["10:00", "12:00", "14:00", "16:00", "18:00"]
+            all_slots = load_config("work_hours")
 
             # Получаем занятые слоты на эту дату
             query = """
@@ -162,6 +162,7 @@ class AppointmentRepository:
                     appointment_date,
                     appointment_time
                 )
+                logger.info(f"{telegram_id}, {service_type}, {appointment_date}:{appointment_time} was created")
 
                 return appointment_id
 
@@ -202,6 +203,7 @@ class AppointmentRepository:
                     """
 
             result = await conn.fetchval(query, appointment_id, telegram_id)
+            logger.info(f"{appointment_id}, {telegram_id} was deleted")
             return result is not None
 
     async def get_appointment_by_id(self, appointment_id: int) -> Optional[Dict[str, Any]]:
