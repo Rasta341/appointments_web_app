@@ -179,7 +179,7 @@ async def cancel_appointment(appointment_id: int, telegram_id: int):
             raise HTTPException(status_code=403, detail="Access denied")
 
         success = await db.appointment_repo.cancel_appointment(appointment_id, telegram_id)
-        client = await user_repo.get_user(appointment.telegram_id)
+        client = await user_repo.get_user(appointment['telegram_id'])
         text_to_admin = (f"🚫 Запись отменена!\n\nПользователь: @{client['username'] or ''}:{client['first_name'] or ''}"
                          f"\nУслуга: {service_names.get(appointment.service_type, appointment.service_type)}\nДата: {appointment.appointment_date}"
                          f"\nВремя: {appointment.appointment_time}")
