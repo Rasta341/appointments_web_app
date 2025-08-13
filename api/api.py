@@ -133,7 +133,7 @@ async def create_appointment(appointment: Appointment):
         )
 
         await send_message_to_admin(appointment)
-        await reminder_repo.create_reminder(appointment.telegram_id, appointment.appointment_date, appointment.appointment_time)
+        await reminder_repo.create_reminder(appointment.telegram_id, appointment.appointment_date, appointment['appointment_time'])
         logger.info(f"sended notify to admin: {appointment}")
 
         return {
@@ -172,7 +172,7 @@ async def cancel_appointment(appointment_id: int, telegram_id: int):
             raise HTTPException(status_code=403, detail="Access denied")
 
         success = await db.appointment_repo.cancel_appointment(appointment_id, telegram_id)
-        await reminder_repo.cancel_reminders_for_appointment(telegram_id, appointment.appointment_date)
+        await reminder_repo.cancel_reminders_for_appointment(telegram_id, appointment['appointment_date'])
         if not success:
             raise HTTPException(status_code=404, detail="Appointment not found")
 
