@@ -8,7 +8,7 @@ import sys
 import os
 
 from bot.bot import send_message_to_admin
-from database.db import reminder_repo
+from database.db import reminder_repo, user_repo
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from logger.bot_logger import get_logger
@@ -78,7 +78,11 @@ class BookedSlotsResponse(BaseModel):
     date: str
     booked_times: List[str]
 
-
+service_names = {
+                'manicure': '💅 Маникюр',
+                'pedicure': '🦶 Педикюр',
+                'both': '✨ Маникюр + Педикюр'
+            }
 # API Endpoints
 @app.get("/booked-slots")
 async def get_booked_slots():
@@ -131,8 +135,11 @@ async def create_appointment(appointment: Appointment):
             appointment.appointment_date,
             appointment.appointment_time
         )
-
-        await send_message_to_admin(appointment)
+        client = await user_repo.get_user(appointment.telegram_id)
+        text_to_admin = (f"🔔 Новая запись!\n\nПользователь: @{client['username'] or ''}:{client['first_name'] or ''}"
+                         f"\nУслуга: {service_names.get(appointment.service_type, appointment.service_type)}\nДата: {appointment.appointment_date}"
+                         f"\nВремя: {appointment.appointment_time}")
+        await send_message_to_admin(text_to_admin)
         await reminder_repo.create_reminder(appointment.telegram_id, appointment.appointment_date, appointment.appointment_time)
         logger.info(f"sended notify to admin: {appointment}")
 
@@ -172,6 +179,11 @@ async def cancel_appointment(appointment_id: int, telegram_id: int):
             raise HTTPException(status_code=403, detail="Access denied")
 
         success = await db.appointment_repo.cancel_appointment(appointment_id, telegram_id)
+        client = await user_repo.get_user(appointment.telegram_id)
+        text_to_admin = (f"🚫 Запись отменена!\n\nПользователь: @{client['username'] or ''}:{client['first_name'] or ''}"
+                         f"\nУслуга: {service_names.get(appointment.service_type, appointment.service_type)}\nДата: {appointment.appointment_date}"
+                         f"\nВремя: {appointment.appointment_time}")
+        await send_message_to_admin(text_to_admin)
         await reminder_repo.cancel_reminders_for_appointment(telegram_id, appointment['appointment_date'])
         if not success:
             raise HTTPException(status_code=404, detail="Appointment not found")
