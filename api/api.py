@@ -181,8 +181,8 @@ async def cancel_appointment(appointment_id: int, telegram_id: int):
         success = await db.appointment_repo.cancel_appointment(appointment_id, telegram_id)
         client = await user_repo.get_user(appointment['telegram_id'])
         text_to_admin = (f"🚫 Запись отменена!\n\nПользователь: @{client['username'] or ''}:{client['first_name'] or ''}"
-                         f"\nУслуга: {service_names.get(appointment.service_type, appointment.service_type)}\nДата: {appointment.appointment_date}"
-                         f"\nВремя: {appointment.appointment_time}")
+                         f"\nУслуга: {service_names.get(appointment['service_type'], appointment['service_type'])}\nДата: {appointment['appointment_date']}"
+                         f"\nВремя: {appointment['appointment_time']}")
         await send_message_to_admin(text_to_admin)
         await reminder_repo.cancel_reminders_for_appointment(telegram_id, appointment['appointment_date'])
         if not success:
