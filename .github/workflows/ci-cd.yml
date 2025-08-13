@@ -65,7 +65,19 @@ jobs:
         port: ${{ secrets.PORT }}
         script: |
           cd ./appointments_web_app
-          git pull origin master
+          cat > .env << EOF
+          DB_USER=${{secrets.DB_USER}}
+          DB_PASSWORD=${{secrets.DB_PASSWORD}}
+          DB_HOST=${{ secrets.DB_HOST }}
+          DB_PORT=${{ secrets.DB_PORT}}
+          DB_NAME=${{ secrets.DB_NAME}}
+          WEBAPP_URL=${{ secrets.WEBAPP_URL}}
+          API_URL=${{ secrets.API_URL }}
+          token=${{ secrets.TG_TOKEN }}
+          admin_id=${{ secrets.ADMIN_ID}}
+          work_hours=${{ secrets.WORK_HOURS}}
+          EOF
+
           echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
           docker compose pull
           docker compose up -d --force-recreate
