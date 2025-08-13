@@ -105,7 +105,7 @@ class ReminderScheduler:
                 f"в {reminder.appointment_time}."
             )
 
-            await self.bot.send_message(reminder.telegram_id, message)
+            await self.bot.send_message_to(reminder.telegram_id, message)
             await self.reminder_repo.mark_reminder_sent(reminder.id)
 
             logger.info(f"Напоминание отправлено пользователю {reminder.telegram_id}")
