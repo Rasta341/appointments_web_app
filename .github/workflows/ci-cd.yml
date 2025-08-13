@@ -57,7 +57,23 @@ jobs:
     
     steps:
     - name: Create directory if it doesn't exist
-      run: mkdir -p appointments_web_app
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ secrets.HOST }}
+        username: ${{ secrets.USERNAME }}
+        key: ${{ secrets.PRIVATE_KEY }}
+        port: ${{ secrets.PORT }}
+        script: |
+          mkdir -p ./appointments_web_app
+    - name: Copy docker-compose.yml
+      uses: appleboy/scp-action@v0.1.4
+      with:
+        host: ${{ secrets.HOST }}
+        username: ${{ secrets.USERNAME }}
+        key: ${{ secrets.PRIVATE_KEY }}
+        port: ${{ secrets.PORT }}
+        source: "docker-compose.yml"
+        target: "appointments_web_app/"
     - name: Deploy to server
       uses: appleboy/ssh-action@v1.0.0
       with:
