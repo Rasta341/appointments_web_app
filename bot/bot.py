@@ -7,8 +7,8 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 from aiohttp import web
 import aiohttp
 
-from database import db
-from database.db import user_repo, reminder_repo
+
+from database.db import user_repo, reminder_repo, appointment_repo
 from logger.bot_logger import get_logger
 from config import load_config
 from notifier.reminder import ReminderScheduler
@@ -24,11 +24,10 @@ bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
 # Логирование
-# logging.basicConfig(level=logging.INFO)
-# logger = bot_logger
 logger = get_logger("bot")
 
 user_repo = user_repo
+appointment_repo = appointment_repo
 
 # Стартовое сообщение с WebApp кнопкой
 @dp.message(Command("start"))
@@ -236,7 +235,7 @@ async def webhook_handler(request):
 # Главная функция
 async def main():
     await dp.start_polling(bot)
-    scheduler = ReminderScheduler(bot, reminder_repo, user_repo)
+    scheduler = ReminderScheduler(bot, reminder_repo, user_repo, appointment_repo)
     await scheduler.start()
 
 

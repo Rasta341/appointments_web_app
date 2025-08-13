@@ -73,7 +73,7 @@ class AppointmentRepository:
                     WHERE appointment_date >= CURRENT_DATE
                       AND appointment_date <= CURRENT_DATE + INTERVAL '2 months'
                       AND status != 'cancelled'
-                    GROUP BY appointment_date, appointment_time \
+                    GROUP BY appointment_date, appointment_time
                     """
 
             rows = await conn.fetch(query)
@@ -127,7 +127,7 @@ class AppointmentRepository:
                     FROM appointments
                     WHERE appointment_date = $1
                       AND appointment_time = $2
-                      AND status != 'cancelled' \
+                      AND status != 'cancelled'
                     """
 
             result = await conn.fetchrow(query, appointment_date, appointment_time)
@@ -144,19 +144,11 @@ class AppointmentRepository:
         async with self.db_manager.get_connection() as conn:
             # Используем транзакцию для атомарности операции
             async with conn.transaction():
-                # Создаем пользователя если не существует
-                user_query = """
-                             INSERT INTO users (telegram_id)
-                             VALUES ($1)
-                             ON CONFLICT (telegram_id) DO NOTHING \
-                             """
-                await conn.execute(user_query, telegram_id)
-
                 # Создаем запись
                 insert_query = """
                                INSERT INTO appointments (telegram_id, service_type, appointment_date, appointment_time)
                                VALUES ($1, $2, $3, $4)
-                               RETURNING id \
+                               RETURNING id
                                """
 
                 appointment_id = await conn.fetchval(
@@ -177,7 +169,7 @@ class AppointmentRepository:
                     SELECT id, service_type, appointment_date, appointment_time, status, created_at
                     FROM appointments
                     WHERE telegram_id = $1
-                    ORDER BY appointment_date DESC, appointment_time DESC \
+                    ORDER BY appointment_date DESC, appointment_time DESC
                     """
 
             rows = await conn.fetch(query, telegram_id)
@@ -207,8 +199,29 @@ class AppointmentRepository:
                     """
 
             result = await conn.fetchval(query, appointment_id, telegram_id)
-            logger.info(f"{appointment_id}, {telegram_id} was deleted")
+            logger.info(f"{appointment_id}, {telegram_id} was cancelled")
             return result is not None
+
+    async def remove_appointment(self, interval: int):
+        async with self.db_manager.get_connection() as conn:
+            query = """
+                    DELETE FROM appointments 
+                    WHERE status = 'cancelled' 
+                    AND appointment_date <= CURRENT_DATE - ($1 || ' days')::INTERVAL
+                    AND created_at < NOW() - ($1 || ' days')::INTERVAL
+                    RETURNING id, telegram_id, service_type, appointment_date, appointment_time, created_at
+                    """
+            try:
+                deleted_records = await conn.fetch(query, interval)
+                if deleted_records:
+                    logger.info(f"Deleted {len(deleted_records)} camcelled appointments")
+                    for record in deleted_records:
+                        logger.info(f"ID: {record['id']}, Telegram: {record['telegram_id']}, "
+                                    f"Service: {record['service_type']}, Created: {record['created_at']}")
+                else:
+                    logger.info("No cancelled appointments to delete")
+            except Exception as e:
+                logger.error(e)
 
     async def get_appointment_by_id(self, appointment_id: int) -> Optional[Dict[str, Any]]:
         """Получение записи по ID"""
@@ -232,11 +245,11 @@ class AppointmentRepository:
                 }
             return None
 
-    async def check_appointment_exists(self, user_id, appointment_date):
+    async def check_appointment_exists(self, telegram_id, appointment_date):
         # Проверяем, существует ли запись
         async with self.db_manager.get_connection() as conn:
-            query = "SELECT user_id FROM appointments WHERE user_id = $1 AND appointment_date = $2"
-            record = await conn.fetchrow(query, user_id, appointment_date)
+            query = "SELECT telegram_id FROM appointments WHERE telegram_id = $1 AND appointment_date = $2"
+            record = await conn.fetchrow(query, telegram_id, appointment_date)
             return record
 
 class UserRepository:

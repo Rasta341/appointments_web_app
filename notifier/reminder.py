@@ -1,6 +1,7 @@
 import asyncio
 import datetime
 
+from config import load_config
 from database.db import ReminderRecord
 from logger.bot_logger import get_logger
 
@@ -11,7 +12,7 @@ logger = get_logger("reminder_scheduler")
 class ReminderScheduler:
     """Планировщик напоминаний с периодической проверкой БД"""
 
-    def __init__(self, bot, reminder_repo, user_repo, check_interval: int = 300):
+    def __init__(self, bot, reminder_repo, user_repo, appointment_repo, check_interval: int = 300):
         """
         Args:
             bot: Telegram bot instance
@@ -22,9 +23,11 @@ class ReminderScheduler:
         self.bot = bot
         self.reminder_repo = reminder_repo
         self.user_repo = user_repo
+        self.appointment_repo = appointment_repo
         self.check_interval = check_interval
         self.running = False
         self._task = None
+        self._last_cleanup = None
 
     async def start(self):
         """Запускает планировщик"""
@@ -52,12 +55,20 @@ class ReminderScheduler:
         while self.running:
             try:
                 await self._check_and_send_reminders()
+                now = datetime.datetime.now()
+                if self._last_cleanup is None or (now - self._last_cleanup).days >= 1:
+                    await self._cleanup_cancelled_appointments()
+                    self._last_cleanup = now
                 await asyncio.sleep(self.check_interval)
             except asyncio.CancelledError:
                 break
             except Exception as e:
                 logger.error(f"Ошибка в цикле планировщика: {e}")
                 await asyncio.sleep(60)  # Короткая пауза при ошибке
+
+    async def _cleanup_cancelled_appointments(self):
+        interval = load_config('CLEANUP_INTERVAL')
+        await self.appointment_repo.remove_appointment(interval=interval)
 
     async def _check_and_send_reminders(self):
         """Проверяет и отправляет готовые напоминания"""
@@ -77,7 +88,7 @@ class ReminderScheduler:
         try:
             # Проверяем, что запись все еще существует
             appointment_exists = await self.user_repo.check_appointment_exists(
-                user_id=reminder.telegram_id,
+                telegram_id=reminder.telegram_id,
                 appointment_date=reminder.appointment_date
             )
 
