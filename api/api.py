@@ -133,7 +133,7 @@ async def create_appointment(appointment: Appointment):
         )
 
         await send_message_to_admin(appointment)
-        await reminder_repo.create_reminder(appointment.telegram_id, appointment.appointment_date, appointment['appointment_time'])
+        await reminder_repo.create_reminder(appointment.telegram_id, appointment.appointment_date, appointment.appointment_time)
         logger.info(f"sended notify to admin: {appointment}")
 
         return {
