@@ -320,10 +320,11 @@ class ReminderRepository:
                               appointment_time: datetime.time) -> bool:
         """Создает напоминание в БД"""
         async with self.db_manager.get_connection() as conn:
+            reminder_hour = load_config('reminder_time')
             try:
                 # Вычисляем время напоминания (день до записи в 18:00)
                 reminder_time = datetime.datetime.combine(
-                    appointment_date, datetime.time(18, 0)
+                    appointment_date, datetime.time(reminder_hour, 0)
                 ) - datetime.timedelta(days=1)
 
                 query = """
