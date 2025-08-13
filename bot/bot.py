@@ -8,7 +8,7 @@ from aiohttp import web
 import aiohttp
 
 
-from database.db import user_repo, reminder_repo, appointment_repo
+from database.db import user_repo, appointment_repo
 from logger.bot_logger import get_logger
 from config import load_config
 from notifier.reminder import ReminderScheduler
@@ -220,6 +220,12 @@ async def send_message_to_admin(admin_text):
     except Exception as e:
         logger.error(e)
 
+async def send_message_to(user_id, text):
+    try:
+        await bot.send_message(user_id, text)
+    except Exception as e:
+        logger.error(e)
+
 # Webhook handler
 async def webhook_handler(request):
     try:
@@ -235,8 +241,7 @@ async def webhook_handler(request):
 # Главная функция
 async def main():
     await dp.start_polling(bot)
-    scheduler = ReminderScheduler(bot, reminder_repo, user_repo, appointment_repo)
-    await scheduler.start()
+    logger.info("Бот запущен")
 
 
 if __name__ == "__main__":

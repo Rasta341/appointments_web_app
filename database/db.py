@@ -391,16 +391,14 @@ class ReminderRepository:
         async with self.db_manager.get_connection() as conn:
             try:
                 query = """
-                    UPDATE reminders 
-                    SET status = $1 
+                    DELETE FROM reminders
                     WHERE telegram_id = $2 AND appointment_date = $3 AND status = $4
                 """
                 await conn.execute(
                     query,
-                    ReminderStatus.CANCELLED.value,
                     telegram_id,
                     appointment_date,
-                    ReminderStatus.PENDING.value
+                    ReminderStatus.PENDING.value or ReminderStatus.CANCELLED.value
                 )
                 logger.info(f"Отменены напоминания для пользователя {telegram_id} на {appointment_date}")
                 return True

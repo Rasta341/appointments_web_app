@@ -18,6 +18,7 @@ class ReminderScheduler:
             bot: Telegram bot instance
             reminder_repo: Репозиторий напоминаний
             user_repo: Репозиторий пользователей
+            appointment_repo: Репозиторий записей
             check_interval: Интервал проверки в секундах (по умолчанию 5 минут)
         """
         self.bot = bot
@@ -87,7 +88,7 @@ class ReminderScheduler:
         """Обрабатывает одно напоминание"""
         try:
             # Проверяем, что запись все еще существует
-            appointment_exists = await self.user_repo.check_appointment_exists(
+            appointment_exists = await self.appointment_repo.check_appointment_exists(
                 telegram_id=reminder.telegram_id,
                 appointment_date=reminder.appointment_date
             )

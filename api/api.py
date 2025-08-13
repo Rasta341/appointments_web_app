@@ -7,20 +7,29 @@ from typing import List
 import sys
 import os
 
-from bot.bot import send_message_to_admin
-from database.db import reminder_repo, user_repo
+from bot.bot import send_message_to_admin, send_message_to
+from bot import bot
+from database.db import reminder_repo, user_repo, appointment_repo
+from notifier import reminder
+from notifier.reminder import ReminderScheduler, schedule_appointment_reminder, cancel_appointment_reminders
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from logger.bot_logger import get_logger
 from database import db
 
 logger = get_logger("api")
+user_repo = user_repo
+appointment_repo = appointment_repo
+reminder_repo = reminder_repo
+
+reminder = ReminderScheduler(bot, reminder_repo, user_repo, appointment_repo)
 
 # Контекстный менеджер для жизненного цикла приложения
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
     await db.init_database()
+    await reminder.start()
     yield
     # Shutdown
     await db.close_database()
@@ -77,6 +86,16 @@ class AppointmentResponse(BaseModel):
 class BookedSlotsResponse(BaseModel):
     date: str
     booked_times: List[str]
+
+class CreateReminderRequest(BaseModel):
+    telegram_id: int
+    appointment_date: date
+    appointment_time: time
+
+
+class CancelReminderRequest(BaseModel):
+    telegram_id: int
+    appointment_date: date
 
 service_names = {
                 'manicure': '💅 Маникюр',
@@ -184,7 +203,7 @@ async def cancel_appointment(appointment_id: int, telegram_id: int):
                          f"\nУслуга: {service_names.get(appointment['service_type'], appointment['service_type'])}\nДата: {appointment['appointment_date']}"
                          f"\nВремя: {appointment['appointment_time']}")
         await send_message_to_admin(text_to_admin)
-        await reminder_repo.cancel_reminders_for_appointment(telegram_id, appointment['appointment_date'])
+        await reminder_repo.cancel_reminders_for_appointment(appointment['Id'])
         if not success:
             raise HTTPException(status_code=404, detail="Appointment not found")
 
@@ -216,6 +235,34 @@ async def process_webapp_data(data: dict):
 async def health_check():
     """Health check endpoint"""
     return {"status": "healthy", "timestamp": datetime.now().isoformat()}
+
+@app.post("/test/reminder/create")
+async def create_reminder(req: CreateReminderRequest):
+    reminder_id = await schedule_appointment_reminder(
+        telegram_id=req.telegram_id,
+        appointment_date=req.appointment_date,
+        appointment_time=req.appointment_time,
+        reminder_repo=reminder_repo
+    )
+    return {"status": "ok", "reminder_id": reminder_id}
+
+
+@app.post("/test/reminder/cancel")
+async def cancel_reminder(req: CancelReminderRequest):
+    result = await cancel_appointment_reminders(
+        telegram_id=req.telegram_id,
+        appointment_date=req.appointment_date,
+        reminder_repo=reminder_repo
+    )
+    return {"status": "ok", "cancelled_count": result}
+
+
+@app.post("/test/reminder/send-now")
+async def send_now(telegram_id: int, message: str):
+    """Тестовая отправка сообщения пользователю"""
+    await send_message_to(telegram_id, message)
+    return {"status": "ok", "message_sent": message}
+
 
 
 if __name__ == "__main__":
