@@ -10,7 +10,6 @@ import os
 from bot.bot import send_message_to_admin, send_message_to
 from bot import bot
 from database.db import reminder_repo, user_repo, appointment_repo
-from notifier import reminder
 from notifier.reminder import ReminderScheduler, schedule_appointment_reminder, cancel_appointment_reminders
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -33,6 +32,7 @@ async def lifespan(app: FastAPI):
     yield
     # Shutdown
     await db.close_database()
+    await reminder.stop()
 
 
 app = FastAPI(title="Nail Salon API", lifespan=lifespan)

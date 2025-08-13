@@ -392,7 +392,7 @@ class ReminderRepository:
             try:
                 query = """
                     DELETE FROM reminders
-                    WHERE telegram_id = $2 AND appointment_date = $3 AND status = $4
+                    WHERE telegram_id = $1 AND appointment_date = $2 AND status = $3
                 """
                 await conn.execute(
                     query,
