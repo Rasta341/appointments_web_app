@@ -93,7 +93,7 @@ jobs:
           token=${{ secrets.TG_TOKEN }}
           admin_id=${{ secrets.ADMIN_ID }}
           work_hours=${{ secrets.WORK_HOURS }}
-          reminder_time=${{ vars.reminder_time}}
+          reminder_time=${{ vars.REMINDER_TIME}}
           EOF
           echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
           docker compose pull
