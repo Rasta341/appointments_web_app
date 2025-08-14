@@ -197,13 +197,13 @@ async def cancel_appointment(appointment_id: int, telegram_id: int):
         if appointment['telegram_id'] != telegram_id:
             raise HTTPException(status_code=403, detail="Access denied")
 
-        success = await db.appointment_repo.cancel_appointment(appointment_id, telegram_id)
         client = await user_repo.get_user(appointment['telegram_id'])
         text_to_admin = (f"🚫 Запись отменена!\n\nПользователь: @{client['username'] or ''}:{client['first_name'] or ''}"
                          f"\nУслуга: {service_names.get(appointment['service_type'], appointment['service_type'])}\nДата: {appointment['appointment_date']}"
                          f"\nВремя: {appointment['appointment_time']}")
+        success = await db.appointment_repo.cancel_appointment(appointment_id, telegram_id)
+        await reminder_repo.cancel_reminders_for_appointment(appointment['telegram_id'])
         await send_message_to_admin(text_to_admin)
-        await reminder_repo.cancel_reminders_for_appointment(appointment['Id'])
         if not success:
             raise HTTPException(status_code=404, detail="Appointment not found")
 
@@ -235,35 +235,6 @@ async def process_webapp_data(data: dict):
 async def health_check():
     """Health check endpoint"""
     return {"status": "healthy", "timestamp": datetime.now().isoformat()}
-
-@app.post("/test/reminder/create")
-async def create_reminder(req: CreateReminderRequest):
-    reminder_id = await schedule_appointment_reminder(
-        telegram_id=req.telegram_id,
-        appointment_date=req.appointment_date,
-        appointment_time=req.appointment_time,
-        reminder_repo=reminder_repo
-    )
-    return {"status": "ok", "reminder_id": reminder_id}
-
-
-@app.post("/test/reminder/cancel")
-async def cancel_reminder(req: CancelReminderRequest):
-    result = await cancel_appointment_reminders(
-        telegram_id=req.telegram_id,
-        appointment_date=req.appointment_date,
-        reminder_repo=reminder_repo
-    )
-    return {"status": "ok", "cancelled_count": result}
-
-
-@app.post("/test/reminder/send-now")
-async def send_now(telegram_id: int, message: str):
-    """Тестовая отправка сообщения пользователю"""
-    await send_message_to(telegram_id, message)
-    return {"status": "ok", "message_sent": message}
-
-
 
 if __name__ == "__main__":
     import uvicorn
