@@ -202,7 +202,7 @@ async def cancel_appointment(appointment_id: int, telegram_id: int):
                          f"\nУслуга: {service_names.get(appointment['service_type'], appointment['service_type'])}\nДата: {appointment['appointment_date']}"
                          f"\nВремя: {appointment['appointment_time']}")
         success = await db.appointment_repo.cancel_appointment(appointment_id, telegram_id)
-        await reminder_repo.cancel_reminders_for_appointment(appointment['telegram_id'])
+        await reminder_repo.cancel_reminders_for_appointment(appointment['telegram_id'], appointment['appointment_date'])
         await send_message_to_admin(text_to_admin)
         if not success:
             raise HTTPException(status_code=404, detail="Appointment not found")
