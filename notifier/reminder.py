@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+from datetime import datetime
 
 from config import load_config
 from database.db import ReminderRecord
@@ -101,7 +102,7 @@ class ReminderScheduler:
 
             # Отправляем напоминание
             message = (
-                f"🔔 Напоминание: у вас запись на {reminder.appointment_date} "
+                f"🔔 Напоминание: у вас запись на {datetime.strptime(str(reminder.appointment_date), '%Y-%m-%d').strftime('%d.%m.%Y')} "
                 f"в {reminder.appointment_time}."
             )
 

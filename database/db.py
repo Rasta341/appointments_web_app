@@ -381,7 +381,7 @@ class ReminderRepository:
         async with self.db_manager.get_connection() as conn:
             try:
                 query = "UPDATE reminders SET status = $1, sent_at = $2 WHERE id = $3"
-                await conn.execute(query, ReminderStatus.SENT.value, datetime.datetime.now(), reminder_id)
+                await conn.execute(query, ReminderStatus.SENT.value, datetime.datetime.now() + datetime.timedelta(hours=3), reminder_id)
                 return True
             except Exception as e:
                 logger.error(f"Ошибка обновления статуса напоминания {reminder_id}: {e}")
