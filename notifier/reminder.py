@@ -57,7 +57,7 @@ class ReminderScheduler:
         while self.running:
             try:
                 await self._check_and_send_reminders()
-                now = datetime.now()
+                now = datetime.datetime.now()
                 if self._last_cleanup is None or (now - self._last_cleanup).days >= 1:
                     await self._cleanup_cancelled_appointments()
                     self._last_cleanup = now
@@ -74,7 +74,7 @@ class ReminderScheduler:
 
     async def _check_and_send_reminders(self):
         """Проверяет и отправляет готовые напоминания"""
-        current_time = datetime.now() + datetime.timedelta(hours=3)
+        current_time = datetime.datetime.now() + datetime.timedelta(hours=3)
         reminders = await self.reminder_repo.get_pending_reminders(current_time)
         logger.info(f"reminders count: {len(reminders)}")
 
