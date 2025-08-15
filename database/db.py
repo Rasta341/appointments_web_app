@@ -325,7 +325,7 @@ class ReminderRepository:
                 # Вычисляем время напоминания (день до записи в 18:00)
                 #TODO разобраться с местным/серверным временем
                 reminder_time = datetime.datetime.combine(
-                    appointment_date, datetime.time(int(reminder_hour), 0)
+                    appointment_date, datetime.time(int(reminder_hour) + 3, 0)
                 ) - datetime.timedelta(days=1)
 
                 query = """
