@@ -46,6 +46,7 @@ services:
       - API_PORT=8088
       - ENVIRONMENT=production
       - PYTHONPATH=/app
+      - TZ=Europe/Moscow
     env_file:
       - .env
     ports:
@@ -81,6 +82,7 @@ services:
       - API_URL=http://api:8088
       - ENVIRONMENT=production
       - PYTHONPATH=/app
+      - TZ=Europe/Moscow
     env_file:
       - .env
     volumes:
