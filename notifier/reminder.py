@@ -1,12 +1,14 @@
 import asyncio
 import datetime
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from config import load_config
 from database.db import ReminderRecord
 from logger.bot_logger import get_logger
 
 logger = get_logger("reminder_scheduler")
+
+
 
 class ReminderScheduler:
     """Планировщик напоминаний с периодической проверкой БД"""
@@ -72,7 +74,7 @@ class ReminderScheduler:
 
     async def _check_and_send_reminders(self):
         """Проверяет и отправляет готовые напоминания"""
-        current_time = datetime.now() + timedelta(hours=3)  # Исправлено
+        current_time = datetime.now() + datetime.timedelta(hours=3)
         reminders = await self.reminder_repo.get_pending_reminders(current_time)
         logger.info(f"reminders count: {len(reminders)}")
 
