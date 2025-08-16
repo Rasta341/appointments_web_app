@@ -16,7 +16,6 @@ BOT_TOKEN = load_config("token")
 WEBAPP_URL = load_config("WEBAPP_URL")  # URL вашего WebApp
 API_URL = load_config("API_URL")  # URL вашего API
 
-
 # Инициализация бота и диспетчера
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
@@ -27,8 +26,11 @@ logger = get_logger("bot")
 user_repo = user_repo
 appointment_repo = appointment_repo
 admin_chat_id = load_config("admin_id")
+
+
 async def check_is_admin(telegram_id) -> bool:
     return int(telegram_id) == int(admin_chat_id)
+
 
 # Стартовое сообщение с WebApp кнопкой
 @dp.message(Command("start"))
@@ -36,14 +38,16 @@ async def cmd_start(message: types.Message):
     user = message.from_user
 
     if await check_is_admin(user.id):
-        admin_keyboard = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="📋 Заявки на запись", callback_data="admin_appointents")]])
+        admin_keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[[InlineKeyboardButton(text="📋 Заявки на запись", callback_data="admin_appointents")]])
         await message.answer(text="""
         Для просмотра заявок на запись - нажмите соответствующую кнопку
-        """,reply_markup=admin_keyboard)
+        """, reply_markup=admin_keyboard)
         return
 
     try:
-        user_created = await user_repo.create_user(telegram_id=user.id, username=user.username, first_name=user.first_name, last_name=user.last_name)
+        user_created = await user_repo.create_user(telegram_id=user.id, username=user.username,
+                                                   first_name=user.first_name, last_name=user.last_name)
         logger.info(user_created)
     except Exception as e:
         logger.error(e)
@@ -68,6 +72,7 @@ async def cmd_start(message: types.Message):
         "Нажмите кнопку ниже для записи:",
         reply_markup=keyboard
     )
+
 
 @dp.callback_query(lambda c: c.data == "admin_appointents")
 async def admin_appointments_handler(callback_query: types.CallbackQuery):
@@ -109,18 +114,18 @@ async def admin_appointments_handler(callback_query: types.CallbackQuery):
                     keyboard_buttons.append([
                         InlineKeyboardButton(
                             text=f"❌: {apt['id']}",
-                            callback_data=f"cancel_admin_{apt['id']}"
+                            callback_data=f"list_cancel_{apt['id']}"  # Изменили префикс для списка
                         ),
                         InlineKeyboardButton(
                             text=f"✅: {apt['id']}",
-                            callback_data=f"approve_{apt['id']}"
+                            callback_data=f"list_approve_{apt['id']}"  # Изменили префикс для списка
                         )
                     ])
                 case 'confirmed':
                     keyboard_buttons.append([
                         InlineKeyboardButton(
                             text=f"❌: {apt['id']}",
-                            callback_data=f"cancel_admin_{apt['id']}"
+                            callback_data=f"list_cancel_{apt['id']}"  # Изменили префикс для списка
                         )
                     ])
 
@@ -179,7 +184,7 @@ async def show_appointments(callback_query: types.CallbackQuery):
                             keyboard_buttons.append([
                                 InlineKeyboardButton(
                                     text=f"❌ Отменить запись: {apt['id']}",
-                                    callback_data=f"cancel_{apt['id']}"
+                                    callback_data=f"user_cancel_{apt['id']}"  # Префикс для пользователя
                                 )
                             ])
 
@@ -205,57 +210,105 @@ async def show_appointments(callback_query: types.CallbackQuery):
         )
 
 
-# Отмена записи
-@dp.callback_query(lambda c: c.data.startswith("cancel_"))
-async def cancel_appointment(callback_query: types.CallbackQuery):
-    data_parts = callback_query.data.split("_")
+# === HANDLERS ДЛЯ УВЕДОМЛЕНИЙ АДМИНУ (с редактированием сообщения) ===
 
-    if "admin" in data_parts:
-        appointment_id = int(data_parts[2])
-        appointment = await appointment_repo.get_appointment_by_id(appointment_id=appointment_id)
-        telegram_id = appointment['telegram_id']
-        logger.info(f"app_id: {appointment_id}\n appid_type: {type(appointment_id)}")
-        result = await appointment_repo.cancel_appointment(appointment_id=appointment_id, telegram_id=telegram_id)
+@dp.callback_query(lambda c: c.data.startswith("admin_cancel_"))
+async def admin_cancel_from_notification(callback_query: types.CallbackQuery):
+    """Отмена записи из уведомления админу - редактирует сообщение"""
+    appointment_id = int(callback_query.data.split("_")[2])
+
+    appointment = await appointment_repo.get_appointment_by_id(appointment_id=appointment_id)
+    telegram_id = appointment['telegram_id']
+    result = await appointment_repo.cancel_appointment(appointment_id=appointment_id, telegram_id=telegram_id)
+
+    if result:
+        # Редактируем сообщение - добавляем статус и убираем кнопки
+        new_text = callback_query.message.text + "\n\n❌ ЗАПИСЬ ОТКЛОНЕНА"
+        await callback_query.message.edit_text(text=new_text)
 
         await send_message_to(user_id=telegram_id, text="Администратор отменил вашу запись")
         await callback_query.answer("✅ Запись отменена")
-
-        if not result:
-            await callback_query.answer("❌ Ошибка отмены записи")
-
     else:
-        appointment_id = int(data_parts[1])
-        telegram_id = callback_query.from_user.id
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.delete(
-                        f"{API_URL}/appointments/{appointment_id}",
-                        params={"telegram_id": telegram_id}
-                ) as response:
-                    if response.status == 200:
-                        await callback_query.answer("✅ Запись отменена")
-                        # Обновляем список записей
-                        await show_appointments(callback_query)
-                    else:
-                        await callback_query.answer("❌ Ошибка отмены записи")
+        await callback_query.answer("❌ Ошибка отмены записи")
 
-        except Exception as e:
-            logger.error(f"Ошибка отмены записи: {e}")
-            await callback_query.answer("❌ Произошла ошибка")
 
-@dp.callback_query(lambda c: c.data.startswith("approve_"))
-async def admin_approve_appointment(callback_query: types.CallbackQuery):
-    appointment_id = int(callback_query.data.split("_")[1])
+@dp.callback_query(lambda c: c.data.startswith("admin_approve_"))
+async def admin_approve_from_notification(callback_query: types.CallbackQuery):
+    """Подтверждение записи из уведомления админу - редактирует сообщение"""
+    appointment_id = int(callback_query.data.split("_")[2])
 
     user_id = await appointment_repo.admin_confirm_appointment(appointment_id)
     if user_id:
-        await send_message_to(user_id=user_id,text="Ваша запись подтверждена Администратором, ждем Вас в назначенное время :)" )
+        # Редактируем сообщение - добавляем статус и убираем кнопки
+        new_text = callback_query.message.text + "\n\n✅ ЗАПИСЬ ПОДТВЕРЖДЕНА"
+        await callback_query.message.edit_text(text=new_text)
+
+        await send_message_to(user_id=user_id, text="Ваша запись подтверждена")
         await callback_query.answer("✅ Запись подтверждена")
+    else:
+        await callback_query.answer("❌ Ошибка подтверждения записи")
+
+
+# === HANDLERS ДЛЯ СПИСКА ЗАПИСЕЙ АДМИНА (обновляют список) ===
+
+@dp.callback_query(lambda c: c.data.startswith("list_cancel_"))
+async def admin_cancel_from_list(callback_query: types.CallbackQuery):
+    """Отмена записи из списка админа - обновляет список"""
+    appointment_id = int(callback_query.data.split("_")[2])
+
+    appointment = await appointment_repo.get_appointment_by_id(appointment_id=appointment_id)
+    telegram_id = appointment['telegram_id']
+    result = await appointment_repo.cancel_appointment(appointment_id=appointment_id, telegram_id=telegram_id)
+
+    if result:
+        await send_message_to(user_id=telegram_id, text="Администратор отменил вашу запись")
+        await callback_query.answer("✅ Запись отменена")
+        # Обновляем список
         await admin_appointments_handler(callback_query)
     else:
-        logger.error("Ошибка в подтверждении записи")
-        await send_message_to(user_id=user_id, text="❌ Не удалось подтвердить вашу запись, свяжитесь с Администратором для записи вручную!!!")
         await callback_query.answer("❌ Ошибка отмены записи")
+
+
+@dp.callback_query(lambda c: c.data.startswith("list_approve_"))
+async def admin_approve_from_list(callback_query: types.CallbackQuery):
+    """Подтверждение записи из списка админа - обновляет список"""
+    appointment_id = int(callback_query.data.split("_")[2])
+
+    user_id = await appointment_repo.admin_confirm_appointment(appointment_id)
+    if user_id:
+        await send_message_to(user_id=user_id, text="Ваша запись подтверждена")
+        await callback_query.answer("✅ Запись подтверждена")
+        # Обновляем список
+        await admin_appointments_handler(callback_query)
+    else:
+        await callback_query.answer("❌ Ошибка подтверждения записи")
+
+
+# === HANDLER ДЛЯ ОТМЕНЫ ПОЛЬЗОВАТЕЛЕМ ===
+
+@dp.callback_query(lambda c: c.data.startswith("user_cancel_"))
+async def user_cancel_appointment(callback_query: types.CallbackQuery):
+    """Отмена записи пользователем"""
+    appointment_id = int(callback_query.data.split("_")[2])
+    telegram_id = callback_query.from_user.id
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.delete(
+                    f"{API_URL}/appointments/{appointment_id}",
+                    params={"telegram_id": telegram_id}
+            ) as response:
+                if response.status == 200:
+                    await callback_query.answer("✅ Запись отменена")
+                    # Обновляем список записей
+                    await show_appointments(callback_query)
+                else:
+                    await callback_query.answer("❌ Ошибка отмены записи")
+
+    except Exception as e:
+        logger.error(f"Ошибка отмены записи: {e}")
+        await callback_query.answer("❌ Произошла ошибка")
+
 
 # Обработка данных от WebApp
 @dp.message(lambda message: message.web_app_data)
@@ -314,45 +367,46 @@ async def cmd_appointments(message: types.Message):
     await show_appointments(fake_callback)
 
 
+# === ФУНКЦИИ ОТПРАВКИ СООБЩЕНИЙ ===
+
 async def send_pending_message_to_admin(admin_text, appointment_id):
-    # Создаем кнопки
-    keyboard_buttons = [
+    """Отправка уведомления админу с кнопками (для редактирования)"""
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [
             InlineKeyboardButton(
                 text=f"❌ Отклонить",
-                callback_data=f"cancel_admin_{appointment_id}"
+                callback_data=f"admin_cancel_{appointment_id}"  # Префикс для уведомлений
             ),
             InlineKeyboardButton(
                 text=f"✅ Подтвердить",
-                callback_data=f"approve_{appointment_id}"
+                callback_data=f"admin_approve_{appointment_id}"  # Префикс для уведомлений
             )
         ]
-    ]
-
-    # Создаем клавиатуру
-    keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
+    ])
 
     try:
         await bot.send_message(
             chat_id=admin_chat_id,
             text=admin_text,
-            reply_markup=keyboard  # Добавляем клавиатуру
+            reply_markup=keyboard
         )
     except Exception as e:
         logger.error(f"Ошибка отправки сообщения админу: {e}")
 
 
-async def send_message_to_admin(admin_text):  # ID чата администратора
+async def send_message_to_admin(admin_text):
     try:
         await bot.send_message(admin_chat_id, admin_text)
     except Exception as e:
         logger.error(e)
+
 
 async def send_message_to(user_id, text):
     try:
         await bot.send_message(user_id, text)
     except Exception as e:
         logger.error(e)
+
 
 # Webhook handler
 async def webhook_handler(request):
