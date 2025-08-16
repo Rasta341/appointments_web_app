@@ -183,7 +183,7 @@ class AppointmentRepository:
                 })
             return appointments
 
-    async def admin_confirm_appopintment(self, appointment_id:int) -> bool:
+    async def admin_confirm_appopintment(self, appointment_id:int) -> str:
         async with self.db_manager.get_connection() as conn:
             query = """
                     UPDATE appointments SET status='confirmed' where id=$1

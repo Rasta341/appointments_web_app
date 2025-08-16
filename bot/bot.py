@@ -248,6 +248,7 @@ async def admin_approve_appointment(callback_query: types.CallbackQuery):
     appointment_id = int(callback_query.data.split("_")[1])
 
     user_id = await appointment_repo.admin_confirm_appopintment(appointment_id)
+    logger.info(f"user_id when try confirm:{user_id}, type: {type(user_id)}")
     if user_id:
         await send_message_to(user_id=user_id,text="Ваша запись подтверждена" )
         await callback_query.answer("✅ Запись подтверждена")
