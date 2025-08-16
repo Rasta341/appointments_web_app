@@ -209,10 +209,11 @@ async def show_appointments(callback_query: types.CallbackQuery):
 @dp.callback_query(lambda c: c.data.startswith("cancel_"))
 async def cancel_appointment(callback_query: types.CallbackQuery):
     data_parts = callback_query.data.split("_")
-    telegram_id = callback_query.from_user.id
 
     if "admin" in data_parts:
         appointment_id = int(data_parts[2])
+        appointment = appointment_repo.get_appointment_by_id(appointment_id=appointment_id)
+        telegram_id = appointment['telegram_id']
         logger.info(f"app_id: {appointment_id}\n appid_type: {type(appointment_id)}")
         result = await appointment_repo.cancel_appointment(appointment_id=appointment_id, telegram_id=telegram_id)
 
@@ -224,6 +225,7 @@ async def cancel_appointment(callback_query: types.CallbackQuery):
 
     else:
         appointment_id = int(data_parts[1])
+        telegram_id = callback_query.from_user.id
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.delete(
