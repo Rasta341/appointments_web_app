@@ -53,8 +53,6 @@ services:
       - "127.0.0.1:8088:8088"
     volumes:
       - ./logs:/app/logs
-      - /etc/localtime:/etc/localtime:ro
-      - /etc/timezone:/etc/timezone:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -88,8 +86,6 @@ services:
       - .env
     volumes:
       - ./logs:/app/logs
-      - /etc/localtime:/etc/localtime:ro
-      - /etc/timezone:/etc/timezone:ro
     depends_on:
       - api
       - postgres
