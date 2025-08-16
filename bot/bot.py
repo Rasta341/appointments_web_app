@@ -91,7 +91,7 @@ async def admin_appointments_handler(callback_query: types.CallbackQuery):
                 'pedicure': '🦶 Педикюр',
                 'both': '✨ Маникюр + Педикюр'
             }
-            user = user_repo.get_user(apt['telegram_id'])
+            user = await user_repo.get_user(apt['telegram_id'])
 
             status_emoji = {
                 'pending': '⏳ В обработке',

@@ -165,7 +165,7 @@ class AppointmentRepository:
     async def admin_get_pending_and_confirmed_appointments_list(self) -> List[Dict[str, Any]]:
         async with self.db_manager.get_connection() as conn:
             query = """
-                    SELECT id, telegram_id service_type, appointment_date, appointment_time, status
+                    SELECT id, telegram_id, service_type, appointment_date, appointment_time, status
                     FROM appointments
                     WHERE status != 'cancelled'
                     ORDER BY appointment_date DESC, appointment_time DESC
@@ -179,7 +179,7 @@ class AppointmentRepository:
                     "service_type": row['service_type'],
                     "appointment_date": row['appointment_date'].strftime('%d-%m'),
                     "appointment_time": row['appointment_time'].strftime('%H:%M'),
-                    "status": row['status'],
+                    "status": row['status']
                 })
             return appointments
 
