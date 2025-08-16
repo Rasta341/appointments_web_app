@@ -72,7 +72,7 @@ async def cmd_start(message: types.Message):
 @dp.callback_query(lambda c: c.data == "admin_appointents")
 async def admin_appointments_handler(callback_query: types.CallbackQuery):
     try:
-        appointments = appointment_repo.admin_get_pending_and_confirmed_appointments_list()
+        appointments = await appointment_repo.admin_get_pending_and_confirmed_appointments_list()
         if not appointments:
             await callback_query.message.edit_text(
                 "📅 У вас пока нет записей.\n"
@@ -244,7 +244,7 @@ async def cancel_appointment(callback_query: types.CallbackQuery):
 async def confirm_appointment(callback_query: types.CallbackQuery):
     appointment_id = int(callback_query.data.split("_")[1])
 
-    user_id = appointment_repo.admin_confirm_appopintment(appointment_id)
+    user_id = await appointment_repo.admin_confirm_appopintment(appointment_id)
     if user_id:
         await send_message_to(user_id=user_id,text="Ваша запись подтверждена" )
         await callback_query.answer("✅ Запись подтверждена")
