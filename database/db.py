@@ -183,18 +183,23 @@ class AppointmentRepository:
                 })
             return appointments
 
-    async def admin_confirm_appopintment(self, appointment_id:int) -> str:
+    async def admin_confirm_appointment(self, appointment_id: int):  # Изменил str на int
         async with self.db_manager.get_connection() as conn:
             query = """
-                    UPDATE appointments SET status='confirmed' where id=$1
+                    UPDATE appointments SET status='confirmed' WHERE id=$1
                     RETURNING telegram_id
                     """
             try:
-                result = await conn.fetch(query, appointment_id)
-                logger.info(f"Запись {appointment_id} подтверждена админом")
+                result = await conn.fetchrow(query, appointment_id)  # fetchrow вместо fetch
+                if result:
+                    logger.info(f"Запись {appointment_id} подтверждена админом")
+                    return result['telegram_id']
+                else:
+                    logger.warning(f"Запись с id {appointment_id} не найдена")
+                    return None
             except Exception as e:
                 logger.error(f"Ошибка при подтверждении записи админом: {e}")
-            return result
+                return None
 
     async def get_user_appointments(self, telegram_id: int) -> List[Dict[str, Any]]:
         """Получение записей пользователя"""
