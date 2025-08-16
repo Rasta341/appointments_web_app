@@ -208,11 +208,12 @@ async def show_appointments(callback_query: types.CallbackQuery):
 # Отмена записи
 @dp.callback_query(lambda c: c.data.startswith("cancel_"))
 async def cancel_appointment(callback_query: types.CallbackQuery):
-    data_parts = callback_query.data.split("_")[1]
+    data_parts = callback_query.data.split("_")
     telegram_id = callback_query.from_user.id
 
     if "admin" in data_parts:
         appointment_id = int(data_parts[2])
+        logger.info(f"app_id: {appointment_id}\n appid_type: {type(appointment_id)}")
         result = await appointment_repo.cancel_appointment(appointment_id=appointment_id, telegram_id=telegram_id)
 
         await send_message_to(user_id=telegram_id, text="Администратор отменил вашу запись")
