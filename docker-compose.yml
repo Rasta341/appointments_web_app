@@ -54,6 +54,7 @@ services:
     volumes:
       - ./logs:/app/logs
       - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -88,6 +89,7 @@ services:
     volumes:
       - ./logs:/app/logs
       - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
     depends_on:
       - api
       - postgres
