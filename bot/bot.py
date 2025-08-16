@@ -212,7 +212,7 @@ async def cancel_appointment(callback_query: types.CallbackQuery):
 
     if "admin" in data_parts:
         appointment_id = int(data_parts[2])
-        appointment = appointment_repo.get_appointment_by_id(appointment_id=appointment_id)
+        appointment = await appointment_repo.get_appointment_by_id(appointment_id=appointment_id)
         telegram_id = appointment['telegram_id']
         logger.info(f"app_id: {appointment_id}\n appid_type: {type(appointment_id)}")
         result = await appointment_repo.cancel_appointment(appointment_id=appointment_id, telegram_id=telegram_id)
