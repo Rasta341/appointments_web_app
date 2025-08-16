@@ -86,6 +86,7 @@ async def admin_appointments_handler(callback_query: types.CallbackQuery):
         keyboard_buttons = []
 
         for apt in appointments:
+            logger.info(f"appointment: {apt}")
             service_names = {
                 'manicure': '💅 Маникюр',
                 'pedicure': '🦶 Педикюр',
@@ -99,6 +100,9 @@ async def admin_appointments_handler(callback_query: types.CallbackQuery):
                 'cancelled': '❌ Отменена'
             }
             date = datetime.strptime(apt['appointment_date'], '%Y-%m-%d').strftime('%d.%m.%Y')
+            logger.info(f"user: {user}")
+            logger.info(f"date: {date}")
+
 
             text += f"{apt['id']}.@{user['username']}, {service_names.get(apt['service_type'], apt['service_type'])}\n"
             text += f"📅 {date} в {apt['appointment_time']}\n"
