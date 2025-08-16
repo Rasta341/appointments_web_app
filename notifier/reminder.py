@@ -75,12 +75,10 @@ class ReminderScheduler:
         """Проверяет и отправляет готовые напоминания"""
         current_time = datetime.datetime.now()
         reminders = await self.reminder_repo.get_pending_reminders(current_time)
-        logger.info(f"reminders count: {len(reminders)}")
+        logger.info(f"Найдено {len(reminders)} напоминаний для отправки")
 
         if not reminders:
             return
-
-        logger.info(f"Найдено {len(reminders)} напоминаний для отправки")
 
         for reminder in reminders:
             await self._process_reminder(reminder)
