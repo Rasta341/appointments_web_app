@@ -72,7 +72,7 @@ async def cmd_start(message: types.Message):
 @dp.callback_query(lambda c: c.data == "admin_appointents")
 async def admin_appointments_handler(callback_query: types.CallbackQuery):
     try:
-        appointments = appointment_repo.admin_get_pending_appointments_list()
+        appointments = appointment_repo.admin_get_pending_and_confirmed_appointments_list()
         if not appointments:
             await callback_query.message.edit_text(
                 "📅 У вас пока нет записей.\n"
