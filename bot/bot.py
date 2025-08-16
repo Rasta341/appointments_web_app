@@ -6,12 +6,10 @@ from aiogram.filters import Command
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 from aiohttp import web
 import aiohttp
-from sqlalchemy import lambda_stmt
 
 from database.db import user_repo, appointment_repo
 from logger.bot_logger import get_logger
 from config import load_config
-from notifier.reminder import ReminderScheduler
 
 # Настройки
 BOT_TOKEN = load_config("token")

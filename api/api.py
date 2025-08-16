@@ -7,10 +7,10 @@ from typing import List
 import sys
 import os
 
-from bot.bot import send_message_to_admin, send_message_to
+from bot.bot import send_message_to_admin
 from bot import bot
 from database.db import reminder_repo, user_repo, appointment_repo
-from notifier.reminder import ReminderScheduler, schedule_appointment_reminder, cancel_appointment_reminders
+from notifier.reminder import ReminderScheduler
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from logger.bot_logger import get_logger
