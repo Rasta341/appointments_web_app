@@ -248,13 +248,13 @@ async def admin_approve_appointment(callback_query: types.CallbackQuery):
     appointment_id = int(callback_query.data.split("_")[1])
 
     user_id = await appointment_repo.admin_confirm_appointment(appointment_id)
-    logger.info(f"user_id when try confirm:{user_id}, type: {type(user_id)}")
     if user_id:
-        await send_message_to(user_id=user_id,text="Ваша запись подтверждена" )
+        await send_message_to(user_id=user_id,text="Ваша запись подтверждена Администратором, ждем Вас в назначенное время :)" )
         await callback_query.answer("✅ Запись подтверждена")
         await admin_appointments_handler(callback_query)
     else:
-        await send_message_to(user_id=user_id, text="❌ Не удалось подтвердить вашу запись, свяжитесь с мастером для записи вручную!!!")
+        logger.error("Ошибка в подтверждении записи")
+        await send_message_to(user_id=user_id, text="❌ Не удалось подтвердить вашу запись, свяжитесь с Администратором для записи вручную!!!")
         await callback_query.answer("❌ Ошибка отмены записи")
 
 # Обработка данных от WebApp
@@ -296,8 +296,6 @@ async def handle_webapp_data(message: types.Message):
 
             await message.answer(confirmation_text, reply_markup=keyboard)
 
-
-
     except Exception as e:
         logger.error(f"Ошибка обработки данных WebApp: {e}")
         await message.answer("❌ Произошла ошибка при обработке записи.")
@@ -314,6 +312,35 @@ async def cmd_appointments(message: types.Message):
         data="my_appointments"
     )
     await show_appointments(fake_callback)
+
+
+async def send_pending_message_to_admin(admin_text, appointment_id):
+    # Создаем кнопки
+    keyboard_buttons = [
+        [
+            InlineKeyboardButton(
+                text=f"❌ Отклонить",
+                callback_data=f"cancel_admin_{appointment_id}"
+            ),
+            InlineKeyboardButton(
+                text=f"✅ Подтвердить",
+                callback_data=f"approve_{appointment_id}"
+            )
+        ]
+    ]
+
+    # Создаем клавиатуру
+    keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
+
+    try:
+        await bot.send_message(
+            chat_id=admin_chat_id,
+            text=admin_text,
+            reply_markup=keyboard  # Добавляем клавиатуру
+        )
+    except Exception as e:
+        logger.error(f"Ошибка отправки сообщения админу: {e}")
+
 
 async def send_message_to_admin(admin_text):  # ID чата администратора
     try:

@@ -7,7 +7,7 @@ from typing import List
 import sys
 import os
 
-from bot.bot import send_message_to_admin
+from bot.bot import send_message_to_admin, send_pending_message_to_admin
 from bot import bot
 from database.db import reminder_repo, user_repo, appointment_repo
 from notifier.reminder import ReminderScheduler
@@ -158,7 +158,7 @@ async def create_appointment(appointment: Appointment):
         text_to_admin = (f"🔔 Новая запись!\n\nПользователь: @{client['username'] or ''}:{client['first_name'] or ''}"
                          f"\nУслуга: {service_names.get(appointment.service_type, appointment.service_type)}\nДата: {appointment.appointment_date}"
                          f"\nВремя: {appointment.appointment_time}")
-        await send_message_to_admin(text_to_admin)
+        await send_pending_message_to_admin(text_to_admin, appointment_id)
         await reminder_repo.create_reminder(appointment.telegram_id, appointment.appointment_date, appointment.appointment_time)
         logger.info(f"sended notify to admin: {appointment}")
 
