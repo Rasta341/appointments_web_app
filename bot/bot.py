@@ -6,7 +6,7 @@ from aiogram.filters import Command
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 from aiohttp import web
 import aiohttp
-
+from sqlalchemy import lambda_stmt
 
 from database.db import user_repo, appointment_repo
 from logger.bot_logger import get_logger
@@ -28,10 +28,28 @@ logger = get_logger("bot")
 
 user_repo = user_repo
 appointment_repo = appointment_repo
+admin_chat_id = load_config("admin_id")
+async def check_is_admin(telegram_id) -> bool:
+    return int(telegram_id) == int(admin_chat_id)
 
 # Стартовое сообщение с WebApp кнопкой
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
+    user = message.from_user
+
+    if await check_is_admin(user.id):
+        admin_keyboard = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="📋 Заявки на запись", callback_data="admin_appointents")]])
+        await message.answer(text="""
+        Для просмотра заявок на запись - нажмите соответствующую кнопку
+        """,reply_markup=admin_keyboard)
+        return
+
+    try:
+        user_created = await user_repo.create_user(telegram_id=user.id, username=user.username, first_name=user.first_name, last_name=user.last_name)
+        logger.info(user_created)
+    except Exception as e:
+        logger.error(e)
+
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(
             text="📅 Записаться на маникюр/педикюр",
@@ -42,12 +60,6 @@ async def cmd_start(message: types.Message):
             callback_data="my_appointments"
         )]
     ])
-    user = message.from_user
-    try:
-        user_created = await user_repo.create_user(telegram_id=user.id, username=user.username, first_name=user.first_name, last_name=user.last_name)
-        logger.info(user_created)
-    except Exception as e:
-        logger.error(e)
 
     await message.answer(
         "🌸 Добро пожаловать в студию красоты!\n\n"
@@ -58,6 +70,70 @@ async def cmd_start(message: types.Message):
         "Нажмите кнопку ниже для записи:",
         reply_markup=keyboard
     )
+
+@dp.callback_query(lambda c: c.data == "admin_appointents")
+async def admin_appointments_handler(callback_query: types.CallbackQuery):
+    try:
+        appointments = appointment_repo.admin_get_pending_appointments_list()
+        if not appointments:
+            await callback_query.message.edit_text(
+                "📅 У вас пока нет записей.\n"
+                "Нажмите /start чтобы записаться!"
+            )
+            return
+
+        text = ("📋 Записи в ожидании\n"
+                "✅ - для подтверждения записи,\n"
+                "❌ - для отмены:\n\n")
+        keyboard_buttons = []
+
+        for apt in appointments:
+            service_names = {
+                'manicure': '💅 Маникюр',
+                'pedicure': '🦶 Педикюр',
+                'both': '✨ Маникюр + Педикюр'
+            }
+            user = user_repo.get_user(apt['telegram_id'])
+
+            status_emoji = {
+                'pending': '⏳ В обработке',
+                'confirmed': '✅ Подтверждена',
+                'cancelled': '❌ Отменена'
+            }
+            date = datetime.strptime(apt['appointment_date'], '%Y-%m-%d').strftime('%d.%m.%Y')
+
+            text += f"{apt['id']}.@{user['username']}, {service_names.get(apt['service_type'], apt['service_type'])}\n"
+            text += f"📅 {date} в {apt['appointment_time']}\n"
+            text += f"Статус: {status_emoji.get(apt['status'], '⏳')}\n\n"
+
+            match apt['status']:
+                case 'pending':
+                    keyboard_buttons.append([
+                        InlineKeyboardButton(
+                            text=f"❌: {apt['id']}",
+                            callback_data=f"cancel_admin_{apt['id']}"
+                        ),
+                        InlineKeyboardButton(
+                            text=f"✅: {apt['id']}",
+                            callback_data=f"approve_{apt['id']}"
+                        )
+                    ])
+                case 'confirmed':
+                    keyboard_buttons.append([
+                        InlineKeyboardButton(
+                            text=f"❌: {apt['id']}",
+                            callback_data=f"cancel_admin_{apt['id']}"
+                        )
+                    ])
+
+        keyboard = InlineKeyboardMarkup(inline_keyboard=keyboard_buttons)
+
+        await callback_query.message.edit_text(text, reply_markup=keyboard)
+    except Exception as e:
+        await callback_query.message.edit_text(
+            "❌ Ошибка получения записей. Попробуйте позже."
+        )
+        logger.error(e)
 
 
 # Показать записи пользователя
@@ -134,26 +210,50 @@ async def show_appointments(callback_query: types.CallbackQuery):
 # Отмена записи
 @dp.callback_query(lambda c: c.data.startswith("cancel_"))
 async def cancel_appointment(callback_query: types.CallbackQuery):
-    appointment_id = int(callback_query.data.split("_")[1])
+    data_parts = callback_query.data.split("_")[1]
     telegram_id = callback_query.from_user.id
 
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.delete(
-                    f"{API_URL}/appointments/{appointment_id}",
-                    params={"telegram_id": telegram_id}
-            ) as response:
-                if response.status == 200:
-                    await callback_query.answer("✅ Запись отменена")
-                    # Обновляем список записей
-                    await show_appointments(callback_query)
-                else:
-                    await callback_query.answer("❌ Ошибка отмены записи")
+    if "admin" in data_parts:
+        appointment_id = int(data_parts[2])
+        result = await appointment_repo.cancel_appointment(appointment_id=appointment_id, telegram_id=telegram_id)
 
-    except Exception as e:
-        logger.error(f"Ошибка отмены записи: {e}")
-        await callback_query.answer("❌ Произошла ошибка")
+        await send_message_to(user_id=telegram_id, text="Администратор отменил вашу запись")
+        await callback_query.answer("✅ Запись отменена")
 
+        if not result:
+            await callback_query.answer("❌ Ошибка отмены записи")
+
+    else:
+        appointment_id = int(data_parts[1])
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.delete(
+                        f"{API_URL}/appointments/{appointment_id}",
+                        params={"telegram_id": telegram_id}
+                ) as response:
+                    if response.status == 200:
+                        await callback_query.answer("✅ Запись отменена")
+                        # Обновляем список записей
+                        await show_appointments(callback_query)
+                    else:
+                        await callback_query.answer("❌ Ошибка отмены записи")
+
+        except Exception as e:
+            logger.error(f"Ошибка отмены записи: {e}")
+            await callback_query.answer("❌ Произошла ошибка")
+
+@dp.callback_query(lambda c: c.data.startswith("confirm_"))
+async def confirm_appointment(callback_query: types.CallbackQuery):
+    appointment_id = int(callback_query.data.split("_")[1])
+
+    user_id = appointment_repo.admin_confirm_appopintment(appointment_id)
+    if user_id:
+        await send_message_to(user_id=user_id,text="Ваша запись подтверждена" )
+        await callback_query.answer("✅ Запись подтверждена")
+        await admin_appointments_handler(callback_query)
+    else:
+        await send_message_to(user_id=user_id, text="❌ Не удалось подтвердить вашу запись, свяжитесь с мастером для записи вручную!!!")
+        await callback_query.answer("❌ Ошибка отмены записи")
 
 # Обработка данных от WebApp
 @dp.message(lambda message: message.web_app_data)
@@ -213,8 +313,7 @@ async def cmd_appointments(message: types.Message):
     )
     await show_appointments(fake_callback)
 
-async def send_message_to_admin(admin_text):
-    admin_chat_id = load_config("admin_id")  # ID чата администратора
+async def send_message_to_admin(admin_text):  # ID чата администратора
     try:
         await bot.send_message(admin_chat_id, admin_text)
     except Exception as e:

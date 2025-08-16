@@ -162,6 +162,40 @@ class AppointmentRepository:
 
                 return appointment_id
 
+    async def admin_get_pending_and_confirmed_appointments_list(self) -> List[Dict[str, Any]]:
+        async with self.db_manager.get_connection() as conn:
+            query = """
+                    SELECT id, telegram_id service_type, appointment_date, appointment_time, status
+                    FROM appointments
+                    WHERE status != 'cancelled'
+                    ORDER BY appointment_date DESC, appointment_time DESC
+                    """
+            rows = await conn.fetch(query)
+            appointments = []
+            for row in rows:
+                appointments.append({
+                    "id": row['id'],
+                    "telegram_id": row['telegram_id'],
+                    "service_type": row['service_type'],
+                    "appointment_date": row['appointment_date'].strftime('%d-%m'),
+                    "appointment_time": row['appointment_time'].strftime('%H:%M'),
+                    "status": row['status'],
+                })
+            return appointments
+
+    async def admin_confirm_appopintment(self, appointment_id:int) -> bool:
+        async with self.db_manager.get_connection() as conn:
+            query = """
+                    UPDATE appointments SET status='confirmed' where id=$1
+                    RETURNING telegram_id
+                    """
+            try:
+                result = await conn.fetch(query, appointment_id)
+                logger.info(f"Запись {appointment_id} подтверждена админом")
+            except Exception as e:
+                logger.error(f"Ошибка при подтверждении записи админом: {e}")
+            return result
+
     async def get_user_appointments(self, telegram_id: int) -> List[Dict[str, Any]]:
         """Получение записей пользователя"""
         async with self.db_manager.get_connection() as conn:
