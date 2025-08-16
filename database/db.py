@@ -177,7 +177,7 @@ class AppointmentRepository:
                     "id": row['id'],
                     "telegram_id": row['telegram_id'],
                     "service_type": row['service_type'],
-                    "appointment_date": row['appointment_date'].strftime('%d-%m'),
+                    "appointment_date": row['appointment_date'].strftime('%Y-%m-%d'),
                     "appointment_time": row['appointment_time'].strftime('%H:%M'),
                     "status": row['status']
                 })
@@ -213,7 +213,7 @@ class AppointmentRepository:
                 appointments.append({
                     "id": row['id'],
                     "service_type": row['service_type'],
-                    "appointment_date": row['appointment_date'].strftime('%d-%m'),
+                    "appointment_date": row['appointment_date'].strftime('%Y-%m-%d'),
                     "appointment_time": row['appointment_time'].strftime('%H:%M'),
                     "status": row['status'],
                     "created_at": row['created_at'].isoformat()
