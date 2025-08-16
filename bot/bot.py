@@ -86,7 +86,6 @@ async def admin_appointments_handler(callback_query: types.CallbackQuery):
         keyboard_buttons = []
 
         for apt in appointments:
-            logger.info(f"appointment: {apt}")
             service_names = {
                 'manicure': '💅 Маникюр',
                 'pedicure': '🦶 Педикюр',
@@ -100,9 +99,6 @@ async def admin_appointments_handler(callback_query: types.CallbackQuery):
                 'cancelled': '❌ Отменена'
             }
             date = datetime.strptime(apt['appointment_date'], '%Y-%m-%d').strftime('%d.%m.%Y')
-            logger.info(f"user: {user}")
-            logger.info(f"date: {date}")
-
 
             text += f"{apt['id']}.@{user['username']}, {service_names.get(apt['service_type'], apt['service_type'])}\n"
             text += f"📅 {date} в {apt['appointment_time']}\n"
@@ -244,8 +240,8 @@ async def cancel_appointment(callback_query: types.CallbackQuery):
             logger.error(f"Ошибка отмены записи: {e}")
             await callback_query.answer("❌ Произошла ошибка")
 
-@dp.callback_query(lambda c: c.data.startswith("confirm_"))
-async def confirm_appointment(callback_query: types.CallbackQuery):
+@dp.callback_query(lambda c: c.data.startswith("approve_"))
+async def admin_approve_appointment(callback_query: types.CallbackQuery):
     appointment_id = int(callback_query.data.split("_")[1])
 
     user_id = await appointment_repo.admin_confirm_appopintment(appointment_id)
