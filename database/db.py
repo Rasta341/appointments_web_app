@@ -253,7 +253,7 @@ class AppointmentRepository:
             try:
                 deleted_records = await conn.fetch(query, interval)
                 if deleted_records:
-                    logger.info(f"Deleted {len(deleted_records)} camcelled appointments")
+                    logger.info(f"Deleted {len(deleted_records)} cancelled appointments")
                     for record in deleted_records:
                         logger.info(f"ID: {record['id']}, Telegram: {record['telegram_id']}, "
                                     f"Service: {record['service_type']}, Created: {record['created_at']}")

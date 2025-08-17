@@ -7,6 +7,8 @@ from logger.bot_logger import get_logger
 
 logger = get_logger("reminder_scheduler")
 
+interval = load_config('CLEANUP_INTERVAL')
+
 
 
 class ReminderScheduler:
@@ -68,7 +70,6 @@ class ReminderScheduler:
                 await asyncio.sleep(60)  # Короткая пауза при ошибке
 
     async def _cleanup_cancelled_appointments(self):
-        interval = load_config('CLEANUP_INTERVAL')
         await self.appointment_repo.remove_appointment(interval=interval)
 
     async def _check_and_send_reminders(self):
