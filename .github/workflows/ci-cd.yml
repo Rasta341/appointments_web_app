@@ -97,6 +97,7 @@ jobs:
           CLEANUP_INTERVAL=${{ vars.CLEANUP_INTERVAL}}
           service_names=${{ vars.service_names}}
           status_emoji=${{ vars.status_emoji}}
+          debug=${{ vars.debug}}
           EOF
           echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
           docker compose pull
