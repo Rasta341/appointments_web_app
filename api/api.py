@@ -21,7 +21,7 @@ logger = get_logger("api")
 user_repo = user_repo
 appointment_repo = appointment_repo
 reminder_repo = reminder_repo
-is_docks_url = load_config('debug')
+debug = load_config('debug')
 
 reminder = ReminderScheduler(bot, reminder_repo, user_repo, appointment_repo)
 
@@ -37,7 +37,7 @@ async def lifespan(app: FastAPI):
     await reminder.stop()
 
 
-app = FastAPI(title="Nail Salon API", lifespan=lifespan, docs_url=is_docks_url, redoc_url=None, openapi_url=None)
+app = FastAPI(title="Nail Salon API", lifespan=lifespan, docs_url=debug, redoc_url=debug, openapi_url=debug)
 
 # CORS для взаимодействия с WebApp
 app.add_middleware(
