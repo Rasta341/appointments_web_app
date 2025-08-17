@@ -15,6 +15,9 @@ from config import load_config
 BOT_TOKEN = load_config("token")
 WEBAPP_URL = load_config("WEBAPP_URL")  # URL вашего WebApp
 API_URL = load_config("API_URL")  # URL вашего API
+ADMIN_CHAT_ID = load_config("admin_id")
+SERVICE_NAMES = json.loads(load_config("service_names"))
+STATUS = json.loads(load_config("status_emoji"))
 
 # Инициализация бота и диспетчера
 bot = Bot(token=BOT_TOKEN)
@@ -25,11 +28,10 @@ logger = get_logger("bot")
 
 user_repo = user_repo
 appointment_repo = appointment_repo
-admin_chat_id = load_config("admin_id")
 
 
 async def check_is_admin(telegram_id) -> bool:
-    return int(telegram_id) == int(admin_chat_id)
+    return int(telegram_id) == int(ADMIN_CHAT_ID)
 
 
 # Стартовое сообщение с WebApp кнопкой
@@ -39,7 +41,9 @@ async def cmd_start(message: types.Message):
 
     if await check_is_admin(user.id):
         admin_keyboard = InlineKeyboardMarkup(
-            inline_keyboard=[[InlineKeyboardButton(text="📋 Заявки на запись", callback_data="admin_appointents")]])
+            inline_keyboard=[
+                [InlineKeyboardButton(text="📋 Заявки на запись", callback_data="admin_appointents")]
+            ])
         await message.answer(text="""
         Для просмотра заявок на запись - нажмите соответствующую кнопку
         """, reply_markup=admin_keyboard)
@@ -80,8 +84,7 @@ async def admin_appointments_handler(callback_query: types.CallbackQuery):
         appointments = await appointment_repo.admin_get_pending_and_confirmed_appointments_list()
         if not appointments:
             await callback_query.message.edit_text(
-                "📅 У вас пока нет записей.\n"
-                "Нажмите /start чтобы записаться!"
+                "📅 У вас пока нет записей. Отдыхаем!\n"
             )
             return
 
@@ -91,23 +94,13 @@ async def admin_appointments_handler(callback_query: types.CallbackQuery):
         keyboard_buttons = []
 
         for apt in appointments:
-            service_names = {
-                'manicure': '💅 Маникюр',
-                'pedicure': '🦶 Педикюр',
-                'both': '✨ Маникюр + Педикюр'
-            }
             user = await user_repo.get_user(apt['telegram_id'])
 
-            status_emoji = {
-                'pending': '⏳ В обработке',
-                'confirmed': '✅ Подтверждена',
-                'cancelled': '❌ Отменена'
-            }
             date = datetime.strptime(apt['appointment_date'], '%Y-%m-%d').strftime('%d.%m.%Y')
 
-            text += f"{apt['id']}.@{user['username']}, {service_names.get(apt['service_type'], apt['service_type'])}\n"
+            text += f"{apt['id']}.@{user['username']}, {SERVICE_NAMES.get(apt['service_type'], apt['service_type'])}\n"
             text += f"📅 {date} в {apt['appointment_time']}\n"
-            text += f"Статус: {status_emoji.get(apt['status'], '⏳')}\n\n"
+            text += f"Статус: {STATUS.get(apt['status'])}\n\n"
 
             match apt['status']:
                 case 'pending':
@@ -161,21 +154,10 @@ async def show_appointments(callback_query: types.CallbackQuery):
                     keyboard_buttons = []
 
                     for apt in appointments:
-                        service_names = {
-                            'manicure': '💅 Маникюр',
-                            'pedicure': '🦶 Педикюр',
-                            'both': '✨ Маникюр + Педикюр'
-                        }
-
-                        status_emoji = {
-                            'pending': '⏳',
-                            'confirmed': '✅',
-                            'cancelled': '❌'
-                        }
 
                         date = datetime.strptime(apt['appointment_date'], '%Y-%m-%d').strftime('%d.%m.%Y')
 
-                        text += f"{apt['id']}. {status_emoji.get(apt['status'], '⏳')} {service_names.get(apt['service_type'], apt['service_type'])}\n"
+                        text += f"{apt['id']}. {STATUS.get(apt['status'])} {SERVICE_NAMES.get(apt['service_type'], apt['service_type'])}\n"
                         text += f"📅 {date} в {apt['appointment_time']}\n"
                         text += f"Статус: {apt['status']}\n\n"
 
@@ -386,7 +368,7 @@ async def send_pending_message_to_admin(admin_text, appointment_id):
 
     try:
         await bot.send_message(
-            chat_id=admin_chat_id,
+            chat_id=ADMIN_CHAT_ID,
             text=admin_text,
             reply_markup=keyboard
         )
@@ -396,7 +378,7 @@ async def send_pending_message_to_admin(admin_text, appointment_id):
 
 async def send_message_to_admin(admin_text):
     try:
-        await bot.send_message(admin_chat_id, admin_text)
+        await bot.send_message(ADMIN_CHAT_ID, admin_text)
     except Exception as e:
         logger.error(e)
 
