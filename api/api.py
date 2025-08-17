@@ -35,7 +35,7 @@ async def lifespan(app: FastAPI):
     await reminder.stop()
 
 
-app = FastAPI(title="Nail Salon API", lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
+app = FastAPI(title="Nail Salon API", lifespan=lifespan)
 
 # CORS для взаимодействия с WebApp
 app.add_middleware(
