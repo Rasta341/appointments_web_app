@@ -41,6 +41,7 @@ class ReminderScheduler:
         self.running = True
         self._task = asyncio.create_task(self._scheduler_loop())
         logger.info(f"Планировщик напоминаний запущен (интервал: {self.check_interval}с)")
+        logger.info(f"Последняя проверка на старые записи: {self._last_cleanup}")
 
     async def stop(self):
         """Останавливает планировщик"""
