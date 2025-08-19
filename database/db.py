@@ -13,7 +13,7 @@ from logger.bot_logger import get_logger
 logger = get_logger("database")
 # Конфигурация базы данных
 DATABASE_URL = f"postgresql://{load_config('DB_USER')}:{load_config('DB_PASSWORD')}@{load_config('DB_HOST')}/postgres"
-appointments_list_length = load_config('appointments_list_length')
+appointments_list_length = int(load_config('appointments_list_length'))
 
 
 class DatabaseManager:
