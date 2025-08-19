@@ -205,10 +205,21 @@ class AppointmentRepository:
         """Получение записей пользователя"""
         async with self.db_manager.get_connection() as conn:
             query = """
-                    SELECT id, service_type, appointment_date, appointment_time, status, created_at
-                    FROM appointments
-                    WHERE telegram_id = $1
-                    ORDER BY appointment_date DESC, appointment_time DESC
+                    SELECT
+                    id, telegram_id, service_type, appointment_date, appointment_time, status, created_at
+                        FROM (
+                            SELECT
+                                id, telegram_id, service_type, appointment_date, appointment_time, status, created_at,
+                                ROW_NUMBER() OVER (ORDER BY appointment_date DESC, appointment_time DESC) as row_num
+                            FROM
+                                appointments
+                            WHERE
+                                telegram_id = $1
+                        ) as tmp
+                        WHERE
+                            (status = 'confirmed') OR (status = 'pending') OR (status = 'cancelled' AND row_num <= 5)
+                    ORDER BY appointment_date DESC, appointment_time DESC;
+
                     """
 
             rows = await conn.fetch(query, telegram_id)
@@ -247,7 +258,7 @@ class AppointmentRepository:
                     DELETE FROM appointments 
                     WHERE status = 'cancelled' 
                     AND appointment_date <= CURRENT_DATE - ($1 || ' days')::INTERVAL
-                    AND created_at < NOW() - ($1 || ' days')::INTERVAL
+                    AND created_at <= NOW() - ($1 || ' days')::INTERVAL
                     RETURNING id, telegram_id, service_type, appointment_date, appointment_time, created_at
                     """
             try:
