@@ -57,8 +57,11 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://manicure-appointments.shop",
+        "http://manicure-appointments.shop",
         "https://www.manicure-appointments.shop",
+        "http://www.manicure-appointments.shop",
         "https://web.telegram.org",
+        "http://web.telegram.org",
     ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
