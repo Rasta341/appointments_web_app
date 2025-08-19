@@ -230,54 +230,34 @@ async def get_user_appointments(telegram_id: int):
 
 
 @app.delete("/appointments/{appointment_id}")
-async def cancel_appointment(appointment_id: int, cancel_request: CancelAppointmentRequest):
+async def cancel_appointment(appointment_id: int, telegram_id: int):
     """Отмена записи"""
     try:
-        # Получаем запись для проверки
+        # Дополнительная проверка принадлежности записи пользователю
         appointment = await db.appointment_repo.get_appointment_by_id(appointment_id)
         if not appointment:
-            raise HTTPException(status_code=404, detail="Запись не найдена")
+            raise HTTPException(status_code=404, detail="Appointment not found")
 
-        # Проверяем принадлежность записи пользователю
-        if appointment['telegram_id'] != cancel_request.telegram_id:
-            logger.warning(
-                f"Unauthorized cancellation attempt: appointment {appointment_id} by user {mask_user_id(cancel_request.telegram_id)}")
-            raise HTTPException(status_code=403, detail="Нет доступа к этой записи")
+        if appointment['telegram_id'] != telegram_id:
+            raise HTTPException(status_code=403, detail="Access denied")
 
-        # Отменяем запись
-        success = await db.appointment_repo.cancel_appointment(appointment_id, cancel_request.telegram_id)
+        client = await user_repo.get_user(appointment['telegram_id'])
+        text_to_admin = (f"🚫 Запись отменена!\n\nПользователь: @{client['username'] or ''}:{client['first_name'] or ''}"
+                         f"\nУслуга: {SERVICE_NAMES.get(appointment['service_type'], appointment['service_type'])}\nДата: {appointment['appointment_date']}"
+                         f"\nВремя: {appointment['appointment_time']}")
+        success = await db.appointment_repo.cancel_appointment(appointment_id, telegram_id)
+        await reminder_repo.cancel_reminders_for_appointment(appointment['telegram_id'], appointment['appointment_date'])
+        await send_message_to_admin(text_to_admin)
         if not success:
-            raise HTTPException(status_code=404, detail="Запись не найдена")
+            raise HTTPException(status_code=404, detail="Appointment not found")
 
-        # Уведомляем админа
-        try:
-            client = await user_repo.get_user(appointment['telegram_id'])
-            username, first_name = safe_get_user_info(client)
-
-            text_to_admin = (
-                f"🚫 Запись отменена!\n\n"
-                f"Пользователь: @{username} ({first_name})\n"
-                f"Услуга: {SERVICE_NAMES.get(appointment['service_type'], appointment['service_type'])}\n"
-                f"Дата: {appointment['appointment_date']}\n"
-                f"Время: {appointment['appointment_time']}"
-            )
-
-            await reminder_repo.cancel_reminders_for_appointment(
-                appointment['telegram_id'],
-                appointment['appointment_date']
-            )
-            await send_message_to_admin(text_to_admin)
-        except Exception as e:
-            logger.error(f"Error sending cancellation notification for appointment {appointment_id}: {e}")
-
-        logger.info(f"Appointment {appointment_id} cancelled by user {mask_user_id(cancel_request.telegram_id)}")
-        return {"success": True, "message": "Запись успешно отменена"}
-
+        return {"success": True, "message": "Appointment cancelled successfully"}
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error cancelling appointment {appointment_id}: {e}")
-        raise HTTPException(status_code=500, detail="Не удалось отменить запись")
+        logger.error(f"Error cancelling appointment {appointment_id} for user {telegram_id}: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
 
 
 @app.post("/webapp-data")
