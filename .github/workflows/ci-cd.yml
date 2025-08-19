@@ -95,8 +95,9 @@ jobs:
           work_hours=${{ secrets.WORK_HOURS }}
           reminder_time=${{ vars.REMINDER_TIME}}
           CLEANUP_INTERVAL=${{ vars.CLEANUP_INTERVAL}}
-          service_names=${{ vars.service_names}}
-          status_emoji=${{ vars.status_emoji}}
+          service_names=${{ vars.SERVICE_NAMES}}
+          status_emoji=${{ vars.STATUS_EMOJI}}
+          appointments_list_length=${{ vars.APPOINTMENTS_LIST_LENGTH}}
           EOF
           echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
           docker compose pull
