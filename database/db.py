@@ -13,6 +13,7 @@ from logger.bot_logger import get_logger
 logger = get_logger("database")
 # Конфигурация базы данных
 DATABASE_URL = f"postgresql://{load_config('DB_USER')}:{load_config('DB_PASSWORD')}@{load_config('DB_HOST')}/postgres"
+appointments_list_length = load_config('appointments_list_length')
 
 
 class DatabaseManager:
@@ -217,12 +218,12 @@ class AppointmentRepository:
                                 telegram_id = $1
                         ) as tmp
                         WHERE
-                            (status = 'confirmed') OR (status = 'pending') OR (status = 'cancelled' AND row_num <= 5)
+                            (status = 'confirmed') OR (status = 'pending') OR (status = 'cancelled' AND row_num <= $2)
                     ORDER BY appointment_date DESC, appointment_time DESC;
 
                     """
 
-            rows = await conn.fetch(query, telegram_id)
+            rows = await conn.fetch(query, telegram_id, appointments_list_length)
 
             appointments = []
             for row in rows:
