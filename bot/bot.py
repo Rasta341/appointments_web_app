@@ -299,14 +299,9 @@ async def handle_webapp_data(message: types.Message):
         data = json.loads(message.web_app_data.data)
 
         if data.get('action') == 'booking_confirmed':
-            service_names = {
-                'manicure': '💅 Маникюр',
-                'pedicure': '🦶 Педикюр',
-                'both': '✨ Маникюр + Педикюр'
-            }
 
             date = datetime.strptime(data['appointment_date'], '%Y-%m-%d').strftime('%d.%m.%Y')
-            service = service_names.get(data['service_type'], data['service_type'])
+            service = SERVICE_NAMES.get(data['service_type'], data['service_type'])
 
             confirmation_text = (
                 f"✅ Запись подтверждена!\n\n"
