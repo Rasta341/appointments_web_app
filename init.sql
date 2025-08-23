@@ -5,7 +5,9 @@ CREATE TABLE IF NOT EXISTS appointments (
     id SERIAL PRIMARY KEY,
     user_id INT4,
     telegram_id INT8 NOT NULL,
-    service_type VARCHAR(50),
+    service_type VARCHAR(50) NOT NULL,
+    service_name VARCHAR(255),
+    service_price INTEGER,
     appointment_date DATE,
     appointment_time TIME,
     status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed', 'cancelled', 'completed')),
@@ -27,6 +29,7 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE INDEX IF NOT EXISTS idx_appointments_telegram_id ON appointments(telegram_id);
 CREATE INDEX IF NOT EXISTS idx_appointments_date_time ON appointments(appointment_date, appointment_time);
 CREATE INDEX IF NOT EXISTS idx_appointments_status ON appointments(status);
+CREATE INDEX idx_appointments_service_name ON appointments(service_name);
 CREATE INDEX IF NOT EXISTS idx_users_telegram_id ON users(telegram_id);
 
 -- Создание уникального индекса для предотвращения дублирования записей на одно время

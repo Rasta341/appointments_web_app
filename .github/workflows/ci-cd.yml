@@ -95,6 +95,7 @@ jobs:
           work_hours=${{ secrets.WORK_HOURS }}
           reminder_time=${{ vars.REMINDER_TIME}}
           CLEANUP_INTERVAL=${{ vars.CLEANUP_INTERVAL}}
+          service_types=${{ vars.SERVICE_TYPES}}
           service_names=${{ vars.SERVICE_NAMES}}
           status_emoji=${{ vars.STATUS_EMOJI}}
           appointments_list_length=${{ vars.APPOINTMENTS_LIST_LENGTH}}

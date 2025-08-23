@@ -21,7 +21,10 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 logger = get_logger("api")
 
 # Константы
+# Конфигурация детальных услуг (можно вынести в config)
+SERVICE_TYPES = json.loads(load_config("service_types"))
 SERVICE_NAMES = json.loads(load_config("service_names"))
+
 user_repo = user_repo
 appointment_repo = appointment_repo
 reminder_repo = reminder_repo
@@ -65,22 +68,49 @@ app.add_middleware(
     ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
-    allow_headers=["*"],  # Telegram WebApp может отправлять разные заголовки
+    allow_headers=["*"],
 )
 
 
-# Модели данных
+# Обновленная модель данных
 class Appointment(BaseModel):
     telegram_id: int = Field(gt=0, description="Telegram user ID")
     service_type: str = Field(description="Type of service")
+    service_name: str = Field(description="Human readable service name")
+    service_price: int = Field(gt=0, description="Service price")
     appointment_date: date = Field(description="Date of appointment")
     appointment_time: time = Field(description="Time of appointment")
 
     @field_validator('service_type')
     def validate_service_type(cls, v):
-        allowed_services = list(SERVICE_NAMES.keys())  # Берем из конфига
+        allowed_services = list(SERVICE_TYPES.keys())
         if v not in allowed_services:
             raise ValueError(f'Service type must be one of: {allowed_services}')
+        return v
+
+    @field_validator('service_name')
+    def validate_service_detail(cls, v, info):
+        # Проверяем соответствие service_detail и service_type
+        service_type = info.data.get('service_type')
+        if service_type and service_type in SERVICE_NAMES:
+            if v not in SERVICE_NAMES[service_type]:
+                allowed_names = list(SERVICE_NAMES[service_type].keys())
+                raise ValueError(f'Service detail must be one of: {allowed_names}')
+        return v
+
+    @field_validator('service_price')
+    def validate_service_price(cls, v, info):
+        # Проверяем соответствие цены с конфигурацией
+        service_type = info.data.get('service_type')
+        service_name = info.data.get('service_name')
+
+        if (service_type and service_name and
+                service_type in SERVICE_TYPES and
+                service_name in SERVICE_NAMES[service_type]):
+
+            expected_price = SERVICE_NAMES[service_type][service_name]['price']
+            if v != expected_price:
+                raise ValueError(f'Price mismatch. Expected {expected_price}, got {v}')
         return v
 
     @field_validator('appointment_date')
@@ -100,6 +130,7 @@ class Appointment(BaseModel):
 class AppointmentResponse(BaseModel):
     id: int
     service_type: str
+    service_name: str  # Теперь содержит service_detail ID
     appointment_date: date
     appointment_time: time
     status: str
@@ -127,7 +158,30 @@ def safe_get_user_info(user_data: dict) -> tuple[str, str]:
     return username, first_name
 
 
+def get_service_display_name(service_type: str, service_name: str) -> str:
+    """Получение отображаемого имени услуги по service_detail ID"""
+    if service_type in SERVICE_NAMES and service_name in SERVICE_NAMES[service_type]:
+        return SERVICE_NAMES[service_type][service_name]['name']
+    return SERVICE_TYPES.get(service_type, service_type)
+
+
+def get_service_price(service_type: str, service_name: str) -> int:
+    """Получение цены услуги по service_detail ID"""
+    if service_type in SERVICE_NAMES and service_name in SERVICE_NAMES[service_type]:
+        return SERVICE_NAMES[service_type][service_name]['price']
+    return 0
+
+
 # API Endpoints
+@app.get("/service-config")
+async def get_service_config():
+    """Получение конфигурации услуг для фронтенда"""
+    return {
+        "service_types": SERVICE_TYPES,
+        "service_names": SERVICE_NAMES
+    }
+
+
 @app.get("/booked-slots")
 async def get_booked_slots():
     """Получение занятых слотов для календаря"""
@@ -143,7 +197,6 @@ async def get_booked_slots():
 async def get_available_slots(raw_date: str):
     """Получение доступных слотов для конкретной даты"""
     try:
-        # Валидация формата даты
         target_date = datetime.strptime(raw_date, "%Y-%m-%d").date()
 
         if target_date < date.today():
@@ -171,12 +224,13 @@ async def create_appointment(appointment: Appointment):
         if not is_available:
             raise HTTPException(status_code=400, detail="Это время уже занято")
 
-        # Создаем запись
+        # Создаем запись - сохраняем service_detail в поле service_name
         appointment_id = await db.appointment_repo.create_appointment(
-            appointment.telegram_id,
-            appointment.service_type,
-            appointment.appointment_date,
-            appointment.appointment_time
+            telegram_id=appointment.telegram_id,
+            service_type=appointment.service_type,
+            service_name=appointment.service_name,  # Сохраняем service_detail в service_name
+            appointment_date=appointment.appointment_date,
+            appointment_time=appointment.appointment_time
         )
 
         # Получаем данные пользователя и отправляем уведомление
@@ -184,10 +238,13 @@ async def create_appointment(appointment: Appointment):
             client = await user_repo.get_user(appointment.telegram_id)
             username, first_name = safe_get_user_info(client)
 
+            display_name = get_service_display_name(appointment.service_type, appointment.service_name)
+
             text_to_admin = (
                 f"🔔 Новая запись!\n\n"
                 f"Пользователь: @{username} ({first_name})\n"
-                f"Услуга: {SERVICE_NAMES.get(appointment.service_type, appointment.service_type)}\n"
+                f"Услуга: {display_name}\n"
+                f"Цена: {appointment.service_price} ₽\n"
                 f"Дата: {appointment.appointment_date}\n"
                 f"Время: {appointment.appointment_time}"
             )
@@ -200,11 +257,13 @@ async def create_appointment(appointment: Appointment):
             )
         except Exception as e:
             logger.error(f"Error sending notification for appointment {appointment_id}: {e}")
-            # Не прерываем создание записи из-за ошибки уведомления
 
-        # Безопасное логирование
         logger.info(
-            f"Appointment created: ID={appointment_id}, user={mask_user_id(appointment.telegram_id)}, service={appointment.service_type}")
+            f"Appointment created: ID={appointment_id}, "
+            f"user={mask_user_id(appointment.telegram_id)}, "
+            f"service={appointment.service_type}:{appointment.service_name}, "
+            f"price={appointment.service_price}"
+        )
 
         return {
             "success": True,
@@ -220,10 +279,24 @@ async def create_appointment(appointment: Appointment):
 
 @app.get("/appointments/{telegram_id}")
 async def get_user_appointments(telegram_id: int):
-    """Получение записей пользователя"""
+    """Получение записей пользователя с расширенной информацией"""
     try:
         appointments = await db.appointment_repo.get_user_appointments(telegram_id)
-        return appointments
+
+        # Обогащаем данные информацией об услугах
+        enriched_appointments = []
+        for appointment in appointments:
+            service_name = appointment.get('service_name', '')  # service_name хранится в service_name
+            service_type = appointment.get('service_type', '')
+
+            enriched_appointment = {
+                **appointment,
+                'display_name': get_service_display_name(service_type, service_name),
+                'price': get_service_price(service_type, service_name)
+            }
+            enriched_appointments.append(enriched_appointment)
+
+        return enriched_appointments
     except Exception as e:
         logger.error(f"Error getting appointments for user {mask_user_id(telegram_id)}: {e}")
         raise HTTPException(status_code=500, detail="Не удалось загрузить записи")
@@ -233,7 +306,6 @@ async def get_user_appointments(telegram_id: int):
 async def cancel_appointment(appointment_id: int, telegram_id: int):
     """Отмена записи"""
     try:
-        # Дополнительная проверка принадлежности записи пользователю
         appointment = await db.appointment_repo.get_appointment_by_id(appointment_id)
         if not appointment:
             raise HTTPException(status_code=404, detail="Appointment not found")
@@ -242,12 +314,27 @@ async def cancel_appointment(appointment_id: int, telegram_id: int):
             raise HTTPException(status_code=403, detail="Access denied")
 
         client = await user_repo.get_user(appointment['telegram_id'])
-        text_to_admin = (f"🚫 Запись отменена!\n\nПользователь: @{client['username'] or ''}:{client['first_name'] or ''}"
-                         f"\nУслуга: {SERVICE_NAMES.get(appointment['service_type'], appointment['service_type'])}\nДата: {appointment['appointment_date']}"
-                         f"\nВремя: {appointment['appointment_time']}")
+
+        # service_name хранится в поле service_name
+        service_name = appointment.get('service_name', '')
+        service_type = appointment.get('service_type', '')
+        display_name = get_service_display_name(service_type, service_name)
+        service_price = get_service_price(service_type, service_name)
+
+        text_to_admin = (
+            f"🚫 Запись отменена!\n\n"
+            f"Пользователь: @{client.get('username', '') or ''}:{client.get('first_name', '') or ''}\n"
+            f"Услуга: {display_name}\n"
+            f"Цена: {service_price} ₽\n"
+            f"Дата: {appointment['appointment_date']}\n"
+            f"Время: {appointment['appointment_time']}"
+        )
+
         success = await db.appointment_repo.cancel_appointment(appointment_id, telegram_id)
-        await reminder_repo.cancel_reminders_for_appointment(appointment['telegram_id'], appointment['appointment_date'])
+        await reminder_repo.cancel_reminders_for_appointment(appointment['telegram_id'],
+                                                             appointment['appointment_date'])
         await send_message_to_admin(text_to_admin)
+
         if not success:
             raise HTTPException(status_code=404, detail="Appointment not found")
 
@@ -257,7 +344,6 @@ async def cancel_appointment(appointment_id: int, telegram_id: int):
     except Exception as e:
         logger.error(f"Error cancelling appointment {appointment_id} for user {telegram_id}: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
-
 
 
 @app.post("/webapp-data")
@@ -279,7 +365,6 @@ async def process_webapp_data(data: dict):
 async def health_check():
     """Health check endpoint"""
     try:
-        # Простая проверка соединения с БД
         await db.appointment_repo.get_booked_slots()
         return {
             "status": "healthy",
@@ -294,7 +379,6 @@ async def health_check():
 if __name__ == "__main__":
     import uvicorn
 
-    # Получаем настройки из конфига
     host = load_config('api_host') or "0.0.0.0"
     port = load_config('api_port') or 8088
 
