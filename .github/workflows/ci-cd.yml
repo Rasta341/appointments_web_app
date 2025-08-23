@@ -70,7 +70,7 @@ jobs:
         username: ${{ secrets.USERNAME }}
         key: ${{ secrets.PRIVATE_KEY }}
         port: ${{ secrets.PORT }}
-        source: "docker-compose.yml, Dockerfile"
+        source: "docker-compose.yml, Dockerfile, services.json"
         target: "appointments_web_app/"
         
     - name: Deploy to server

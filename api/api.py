@@ -23,7 +23,9 @@ logger = get_logger("api")
 # Константы
 # Конфигурация детальных услуг (можно вынести в config)
 SERVICE_TYPES = json.loads(load_config("service_types"))
-SERVICE_NAMES = json.loads(load_config("service_names"))
+config_path = os.getenv("services_path", "./services.json")
+with open(config_path, "r", encoding="utf-8") as f:
+    SERVICE_NAMES = json.load(f)
 
 user_repo = user_repo
 appointment_repo = appointment_repo
