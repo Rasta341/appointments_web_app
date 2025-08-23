@@ -228,6 +228,13 @@ class AppointmentRepository:
             for record in deleted_records:
                 logger.info(f"Deleted cancelled appointment: {record}")
 
+    async def check_appointment_exists(self, telegram_id, appointment_date):
+        # Проверяем, существует ли запись
+        async with self.db_manager.get_connection() as conn:
+            query = "SELECT telegram_id FROM appointments WHERE telegram_id = $1 AND appointment_date = $2"
+            record = await conn.fetchrow(query, telegram_id, appointment_date)
+            return record
+
     async def admin_get_pending_and_confirmed_appointments_list(self) -> List[Dict[str, Any]]:
         """Получение всех записей для админа"""
         async with self.db_manager.get_connection() as conn:
