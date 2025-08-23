@@ -139,7 +139,8 @@ class AppointmentRepository:
         async with self.db_manager.get_connection() as conn:
             async with conn.transaction():
                 query = """
-                    INSERT INTO appointments (telegram_id, service_type, service_name, service_price, appointment_date, appointment_time)
+                    INSERT INTO appointments (telegram_id, service_type, service_name, service_price, appointment_date,
+                     appointment_time)
                     VALUES ($1, $2, $3, $4, $5, $6)
                     RETURNING id
                 """
@@ -152,37 +153,55 @@ class AppointmentRepository:
                     appointment_date,
                     appointment_time
                 )
-                logger.info(f"Appointment created: user={telegram_id}, service={service_type}:{service_name}, price={service_price}, date={appointment_date}, time={appointment_time}")
+                logger.info(f"Appointment created: user={telegram_id}, service={service_type}:{service_name},"
+                            f" price={service_price}, date={appointment_date}, time={appointment_time}")
                 return appointment_id
 
     async def get_user_appointments(self, telegram_id: int) -> List[Dict[str, Any]]:
         """Получение записей пользователя"""
         async with self.db_manager.get_connection() as conn:
             query = """
-                    SELECT id, telegram_id, service_type, service_name, appointment_date, appointment_time, status
-                    FROM appointments
-                    WHERE status != 'cancelled'
-                    ORDER BY appointment_date DESC, appointment_time DESC
+                    SELECT
+                    id, telegram_id, service_type, service_name, service_price, appointment_date, appointment_time,
+                     status
+                        FROM (
+                            SELECT
+                                id, telegram_id, service_type, service_name, service_price, appointment_date,
+                                 appointment_time, status
+                                ROW_NUMBER() OVER (ORDER BY appointment_date DESC, appointment_time DESC) as row_num
+                            FROM
+                                appointments
+                            WHERE
+                                telegram_id = $1
+                        ) as tmp
+                        WHERE
+                            (status = 'confirmed') OR (status = 'pending') OR (status = 'cancelled' AND row_num <= $2)
+                    ORDER BY appointment_date DESC, appointment_time DESC;
+
                     """
-            rows = await conn.fetch(query)
+
+            rows = await conn.fetch(query, telegram_id, appointments_list_length)
+
             appointments = []
             for row in rows:
                 appointments.append({
                     "id": row['id'],
-                    "telegram_id": row['telegram_id'],
                     "service_type": row['service_type'],
                     "service_name": row['service_name'],
                     "appointment_date": row['appointment_date'].strftime('%Y-%m-%d'),
                     "appointment_time": row['appointment_time'].strftime('%H:%M'),
-                    "status": row['status']
+                    "status": row['status'],
+                    "created_at": row['created_at'].isoformat()
                 })
+
             return appointments
 
     async def get_appointment_by_id(self, appointment_id: int) -> Optional[Dict[str, Any]]:
         """Получение записи по ID"""
         async with self.db_manager.get_connection() as conn:
             query = """
-                SELECT id, telegram_id, service_type, service_name, service_price, appointment_date, appointment_time, status, created_at
+                SELECT id, telegram_id, service_type, service_name, service_price, appointment_date, appointment_time,
+                 status, created_at
                 FROM appointments
                 WHERE id = $1
             """
@@ -222,7 +241,8 @@ class AppointmentRepository:
                 WHERE status = 'cancelled'
                   AND appointment_date <= CURRENT_DATE - ($1 || ' days')::INTERVAL
                   AND created_at <= NOW() - ($1 || ' days')::INTERVAL
-                RETURNING id, telegram_id, service_type, service_name, service_price, appointment_date, appointment_time, created_at
+                RETURNING id, telegram_id, service_type, service_name, service_price, appointment_date,
+                 appointment_time, created_at
             """
             deleted_records = await conn.fetch(query, interval)
             for record in deleted_records:
@@ -239,7 +259,8 @@ class AppointmentRepository:
         """Получение всех записей для админа"""
         async with self.db_manager.get_connection() as conn:
             query = """
-                SELECT id, telegram_id, service_type, service_name, service_price, appointment_date, appointment_time, status
+                SELECT id, telegram_id, service_type, service_name, service_price, appointment_date,
+                 appointment_time, status
                 FROM appointments
                 WHERE status != 'cancelled'
                 ORDER BY appointment_date DESC, appointment_time DESC
