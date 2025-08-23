@@ -167,7 +167,7 @@ class AppointmentRepository:
                         FROM (
                             SELECT
                                 id, telegram_id, service_type, service_name, service_price, appointment_date,
-                                 appointment_time, status
+                                 appointment_time, status,
                                 ROW_NUMBER() OVER (ORDER BY appointment_date DESC, appointment_time DESC) as row_num
                             FROM
                                 appointments
