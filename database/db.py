@@ -190,8 +190,7 @@ class AppointmentRepository:
                     "service_name": row['service_name'],
                     "appointment_date": row['appointment_date'].strftime('%Y-%m-%d'),
                     "appointment_time": row['appointment_time'].strftime('%H:%M'),
-                    "status": row['status'],
-                    "created_at": row['created_at'].isoformat()
+                    "status": row['status']
                 })
 
             return appointments
