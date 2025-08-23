@@ -72,7 +72,6 @@ async def cmd_start(message: types.Message):
         "Здесь вы можете записаться на:\n"
         "• 💅 Маникюр\n"
         "• 🦶 Педикюр\n"
-        "• ✨ Комплексный уход\n\n"
         "Нажмите кнопку ниже для записи:",
         reply_markup=keyboard
     )
@@ -157,9 +156,9 @@ async def show_appointments(callback_query: types.CallbackQuery):
 
                         date = datetime.strptime(apt['appointment_date'], '%Y-%m-%d').strftime('%d.%m.%Y')
 
-                        text += f"{apt['id']}. {STATUS.get(apt['status'])} {SERVICE_TYPES.get(apt['service_type'], apt['service_type'])}\n"
+                        text += f"{apt['id']}.{SERVICE_TYPES.get(apt['service_type'], apt['service_type'])}\n"
                         text += f"📅 {date} в {apt['appointment_time']}\n"
-                        text += f"Статус: {apt['status']}\n\n"
+                        text += f"Статус: {STATUS.get(apt['status'], apt['status'])} \n\n"
 
                         # Добавляем кнопку отмены только для активных записей
                         if apt['status'] in ['pending', 'confirmed']:
