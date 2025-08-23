@@ -133,6 +133,7 @@ class AppointmentResponse(BaseModel):
     id: int
     service_type: str
     service_name: str  # Теперь содержит service_detail ID
+    service_price: int
     appointment_date: date
     appointment_time: time
     status: str

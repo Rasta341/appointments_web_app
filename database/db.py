@@ -78,8 +78,6 @@ class AppointmentRepository:
                     """
 
             rows = await conn.fetch(query)
-
-            # Группируем по датам
             booked_slots = {}
             for row in rows:
                 date_str = row['appointment_date'].strftime('%Y-%m-%d')
@@ -95,10 +93,7 @@ class AppointmentRepository:
     async def get_available_slots(self, target_date: date) -> Dict[str, Any]:
         """Получение доступных слотов для конкретной даты"""
         async with self.db_manager.get_connection() as conn:
-            # Все возможные временные слоты
             all_slots = ["10:00", "12:00", "14:00", "16:00", "18:00"]
-
-            # Получаем занятые слоты на эту дату
             query = """
                     SELECT appointment_time, COUNT(*) as count
                     FROM appointments
@@ -110,10 +105,7 @@ class AppointmentRepository:
 
             rows = await conn.fetch(query, target_date)
             booked_times = [row['appointment_time'].strftime('%H:%M') for row in rows]
-
-            # Возвращаем доступные слоты
             available_slots = [slot for slot in all_slots if slot not in booked_times]
-
             return {
                 "date": target_date.isoformat(),
                 "available_slots": available_slots,
@@ -127,8 +119,8 @@ class AppointmentRepository:
                     SELECT COUNT(*) as count
                     FROM appointments
                     WHERE appointment_date = $1
-                      AND appointment_time = $2
-                      AND status != 'cancelled'
+                    AND appointment_time = $2
+                    AND status != 'cancelled'
                     """
 
             result = await conn.fetchrow(query, appointment_date, appointment_time)
@@ -138,35 +130,36 @@ class AppointmentRepository:
             self,
             telegram_id: int,
             service_type: str,
+            service_name: str,
+            service_price: int,
             appointment_date: date,
             appointment_time: time
     ) -> int:
         """Создание новой записи"""
         async with self.db_manager.get_connection() as conn:
-            # Используем транзакцию для атомарности операции
             async with conn.transaction():
-                # Создаем запись
-                insert_query = """
-                               INSERT INTO appointments (telegram_id, service_type, appointment_date, appointment_time)
-                               VALUES ($1, $2, $3, $4)
-                               RETURNING id
-                               """
-
+                query = """
+                    INSERT INTO appointments (telegram_id, service_type, service_name, service_price, appointment_date, appointment_time)
+                    VALUES ($1, $2, $3, $4, $5, $6)
+                    RETURNING id
+                """
                 appointment_id = await conn.fetchval(
-                    insert_query,
+                    query,
                     telegram_id,
                     service_type,
+                    service_name,
+                    service_price,
                     appointment_date,
                     appointment_time
                 )
-                logger.info(f"{telegram_id}, {service_type}, {appointment_date}:{appointment_time} was created")
-
+                logger.info(f"Appointment created: user={telegram_id}, service={service_type}:{service_name}, price={service_price}, date={appointment_date}, time={appointment_time}")
                 return appointment_id
 
-    async def admin_get_pending_and_confirmed_appointments_list(self) -> List[Dict[str, Any]]:
+    async def get_user_appointments(self, telegram_id: int) -> List[Dict[str, Any]]:
+        """Получение записей пользователя"""
         async with self.db_manager.get_connection() as conn:
             query = """
-                    SELECT id, telegram_id, service_type, appointment_date, appointment_time, status
+                    SELECT id, telegram_id, service_type, service_name, appointment_date, appointment_time, status
                     FROM appointments
                     WHERE status != 'cancelled'
                     ORDER BY appointment_date DESC, appointment_time DESC
@@ -178,117 +171,29 @@ class AppointmentRepository:
                     "id": row['id'],
                     "telegram_id": row['telegram_id'],
                     "service_type": row['service_type'],
+                    "service_name": row['service_name'],
                     "appointment_date": row['appointment_date'].strftime('%Y-%m-%d'),
                     "appointment_time": row['appointment_time'].strftime('%H:%M'),
                     "status": row['status']
                 })
             return appointments
 
-    async def admin_confirm_appointment(self, appointment_id: int):  # Изменил str на int
-        async with self.db_manager.get_connection() as conn:
-            query = """
-                    UPDATE appointments SET status='confirmed' WHERE id=$1
-                    RETURNING telegram_id
-                    """
-            try:
-                result = await conn.fetchrow(query, appointment_id)  # fetchrow вместо fetch
-                if result:
-                    logger.info(f"Запись {appointment_id} подтверждена админом")
-                    return result['telegram_id']
-                else:
-                    logger.warning(f"Запись с id {appointment_id} не найдена")
-                    return None
-            except Exception as e:
-                logger.error(f"Ошибка при подтверждении записи админом: {e}")
-                return None
-
-    async def get_user_appointments(self, telegram_id: int) -> List[Dict[str, Any]]:
-        """Получение записей пользователя"""
-        async with self.db_manager.get_connection() as conn:
-            query = """
-                    SELECT
-                    id, telegram_id, service_type, appointment_date, appointment_time, status, created_at
-                        FROM (
-                            SELECT
-                                id, telegram_id, service_type, appointment_date, appointment_time, status, created_at,
-                                ROW_NUMBER() OVER (ORDER BY appointment_date DESC, appointment_time DESC) as row_num
-                            FROM
-                                appointments
-                            WHERE
-                                telegram_id = $1
-                        ) as tmp
-                        WHERE
-                            (status = 'confirmed') OR (status = 'pending') OR (status = 'cancelled' AND row_num <= $2)
-                    ORDER BY appointment_date DESC, appointment_time DESC;
-
-                    """
-
-            rows = await conn.fetch(query, telegram_id, appointments_list_length)
-
-            appointments = []
-            for row in rows:
-                appointments.append({
-                    "id": row['id'],
-                    "service_type": row['service_type'],
-                    "appointment_date": row['appointment_date'].strftime('%Y-%m-%d'),
-                    "appointment_time": row['appointment_time'].strftime('%H:%M'),
-                    "status": row['status'],
-                    "created_at": row['created_at'].isoformat()
-                })
-
-            return appointments
-
-    async def cancel_appointment(self, appointment_id: int, telegram_id: int) -> bool:
-        """Отмена записи"""
-        async with self.db_manager.get_connection() as conn:
-            query = """
-                    UPDATE appointments
-                    SET status = 'cancelled'
-                    WHERE id = $1 \
-                      AND telegram_id = $2
-                    RETURNING id \
-                    """
-
-            result = await conn.fetchval(query, appointment_id, telegram_id)
-            logger.info(f"{appointment_id}, {telegram_id} was cancelled")
-            return result is not None
-
-    async def remove_appointment(self, interval: int):
-        async with self.db_manager.get_connection() as conn:
-            query = """
-                    DELETE FROM appointments 
-                    WHERE status = 'cancelled' 
-                    AND appointment_date <= CURRENT_DATE - ($1 || ' days')::INTERVAL
-                    AND created_at <= NOW() - ($1 || ' days')::INTERVAL
-                    RETURNING id, telegram_id, service_type, appointment_date, appointment_time, created_at
-                    """
-            try:
-                deleted_records = await conn.fetch(query, interval)
-                if deleted_records:
-                    logger.info(f"Deleted {len(deleted_records)} cancelled appointments")
-                    for record in deleted_records:
-                        logger.info(f"ID: {record['id']}, Telegram: {record['telegram_id']}, "
-                                    f"Service: {record['service_type']}, Created: {record['created_at']}")
-                else:
-                    logger.info("No cancelled appointments to delete")
-            except Exception as e:
-                logger.error(e)
-
     async def get_appointment_by_id(self, appointment_id: int) -> Optional[Dict[str, Any]]:
         """Получение записи по ID"""
         async with self.db_manager.get_connection() as conn:
             query = """
-                    SELECT id, telegram_id, service_type, appointment_date, appointment_time, status, created_at
-                    FROM appointments
-                    WHERE id = $1 \
-                    """
-
+                SELECT id, telegram_id, service_type, service_name, service_price, appointment_date, appointment_time, status, created_at
+                FROM appointments
+                WHERE id = $1
+            """
             row = await conn.fetchrow(query, appointment_id)
             if row:
                 return {
                     "id": row['id'],
                     "telegram_id": row['telegram_id'],
                     "service_type": row['service_type'],
+                    "service_name": row['service_name'],
+                    "service_price": row['service_price'],
                     "appointment_date": row['appointment_date'],
                     "appointment_time": row['appointment_time'],
                     "status": row['status'],
@@ -296,12 +201,72 @@ class AppointmentRepository:
                 }
             return None
 
-    async def check_appointment_exists(self, telegram_id, appointment_date):
-        # Проверяем, существует ли запись
+    async def cancel_appointment(self, appointment_id: int, telegram_id: int) -> bool:
+        """Отмена записи"""
         async with self.db_manager.get_connection() as conn:
-            query = "SELECT telegram_id FROM appointments WHERE telegram_id = $1 AND appointment_date = $2"
-            record = await conn.fetchrow(query, telegram_id, appointment_date)
-            return record
+            query = """
+                UPDATE appointments
+                SET status = 'cancelled'
+                WHERE id = $1 AND telegram_id = $2
+                RETURNING id
+            """
+            result = await conn.fetchval(query, appointment_id, telegram_id)
+            logger.info(f"Appointment cancelled: id={appointment_id}, user={telegram_id}")
+            return result is not None
+
+    async def remove_appointment(self, interval: int):
+        """Удаление старых отмененных записей"""
+        async with self.db_manager.get_connection() as conn:
+            query = """
+                DELETE FROM appointments
+                WHERE status = 'cancelled'
+                  AND appointment_date <= CURRENT_DATE - ($1 || ' days')::INTERVAL
+                  AND created_at <= NOW() - ($1 || ' days')::INTERVAL
+                RETURNING id, telegram_id, service_type, service_name, service_price, appointment_date, appointment_time, created_at
+            """
+            deleted_records = await conn.fetch(query, interval)
+            for record in deleted_records:
+                logger.info(f"Deleted cancelled appointment: {record}")
+
+    async def admin_get_pending_and_confirmed_appointments_list(self) -> List[Dict[str, Any]]:
+        """Получение всех записей для админа"""
+        async with self.db_manager.get_connection() as conn:
+            query = """
+                SELECT id, telegram_id, service_type, service_name, service_price, appointment_date, appointment_time, status
+                FROM appointments
+                WHERE status != 'cancelled'
+                ORDER BY appointment_date DESC, appointment_time DESC
+            """
+            rows = await conn.fetch(query)
+            return [
+                {
+                    "id": row['id'],
+                    "telegram_id": row['telegram_id'],
+                    "service_type": row['service_type'],
+                    "service_name": row['service_name'],
+                    "service_price": row['service_price'],
+                    "appointment_date": row['appointment_date'].strftime('%Y-%m-%d'),
+                    "appointment_time": row['appointment_time'].strftime('%H:%M'),
+                    "status": row['status']
+                } for row in rows
+            ]
+
+    async def admin_confirm_appointment(self, appointment_id: int) -> Optional[int]:
+        """Подтверждение записи админом"""
+        async with self.db_manager.get_connection() as conn:
+            query = """
+                UPDATE appointments
+                SET status = 'confirmed'
+                WHERE id = $1
+                RETURNING telegram_id
+            """
+            row = await conn.fetchrow(query, appointment_id)
+            if row:
+                logger.info(f"Appointment confirmed by admin: id={appointment_id}")
+                return row['telegram_id']
+            logger.warning(f"Appointment not found for confirmation: id={appointment_id}")
+            return None
+
 
 class UserRepository:
     """Репозиторий для работы с пользователями"""
