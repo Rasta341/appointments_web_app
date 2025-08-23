@@ -232,6 +232,7 @@ async def create_appointment(appointment: Appointment):
             telegram_id=appointment.telegram_id,
             service_type=appointment.service_type,
             service_name=appointment.service_name,  # Сохраняем service_detail в service_name
+            service_price=appointment.service_price,
             appointment_date=appointment.appointment_date,
             appointment_time=appointment.appointment_time
         )
