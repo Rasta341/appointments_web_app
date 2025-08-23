@@ -16,7 +16,7 @@ BOT_TOKEN = load_config("token")
 WEBAPP_URL = load_config("WEBAPP_URL")  # URL вашего WebApp
 API_URL = load_config("API_URL")  # URL вашего API
 ADMIN_CHAT_ID = load_config("admin_id")
-SERVICE_NAMES = json.loads(load_config("service_names"))
+SERVICE_TYPES = json.loads(load_config("service_types"))
 STATUS = json.loads(load_config("status_emoji"))
 
 # Инициализация бота и диспетчера
@@ -98,7 +98,7 @@ async def admin_appointments_handler(callback_query: types.CallbackQuery):
 
             date = datetime.strptime(apt['appointment_date'], '%Y-%m-%d').strftime('%d.%m.%Y')
 
-            text += f"{apt['id']}.@{user['username']}, {SERVICE_NAMES.get(apt['service_type'], apt['service_type'])}\n"
+            text += f"{apt['id']}.@{user['username']}, {SERVICE_TYPES.get(apt['service_type'], apt['service_type'])}\n"
             text += f"📅 {date} в {apt['appointment_time']}\n"
             text += f"Статус: {STATUS.get(apt['status'])}\n\n"
 
@@ -157,7 +157,7 @@ async def show_appointments(callback_query: types.CallbackQuery):
 
                         date = datetime.strptime(apt['appointment_date'], '%Y-%m-%d').strftime('%d.%m.%Y')
 
-                        text += f"{apt['id']}. {STATUS.get(apt['status'])} {SERVICE_NAMES.get(apt['service_type'], apt['service_type'])}\n"
+                        text += f"{apt['id']}. {STATUS.get(apt['status'])} {SERVICE_TYPES.get(apt['service_type'], apt['service_type'])}\n"
                         text += f"📅 {date} в {apt['appointment_time']}\n"
                         text += f"Статус: {apt['status']}\n\n"
 
@@ -301,7 +301,7 @@ async def handle_webapp_data(message: types.Message):
         if data.get('action') == 'booking_confirmed':
 
             date = datetime.strptime(data['appointment_date'], '%Y-%m-%d').strftime('%d.%m.%Y')
-            service = SERVICE_NAMES.get(data['service_type'], data['service_type'])
+            service = SERVICE_TYPES.get(data['service_type'], data['service_type'])
 
             confirmation_text = (
                 f"✅ Запись подтверждена!\n\n"
