@@ -91,12 +91,12 @@ class Appointment(BaseModel):
         return v
 
     @field_validator('service_name')
-    def validate_service_detail(cls, v, info):
-        # Проверяем соответствие service_detail и service_type
-        service_type = info.data.get('service_type')
-        if service_type and service_type in SERVICE_NAMES:
-            if v not in SERVICE_NAMES[service_type]:
-                allowed_names = list(SERVICE_NAMES[service_type].keys())
+    def validate_service_name(cls, v, info):
+        # Проверяем соответствие service_name
+        service_name = info.data.get('service_name')
+        if service_name and service_name in SERVICE_NAMES:
+            if v not in SERVICE_NAMES[service_name]:
+                allowed_names = list(SERVICE_NAMES[service_name].keys())
                 raise ValueError(f'Service detail must be one of: {allowed_names}')
         return v
 

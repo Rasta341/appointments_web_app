@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Студия красоты - Маникюр & Педикюр</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="./css/pefect_styles.css?v=10" />
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>✨ Студия красоты</h1>
+            <p>Профессиональный маникюр и педикюр</p>
+        </div>
+
+        <div class="booking-card">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+
+            <!-- Шаг 1: Выбор услуги -->
+            <div class="step active" id="step1">
+                <div class="step-header">
+                    <div class="step-title">Выберите услугу</div>
+                    <div class="step-subtitle">Что вас интересует?</div>
+                </div>
+                <div class="service-options" id="serviceOptions">
+                    <!-- Услуги загружаются динамически -->
+                </div>
+            </div>
+
+            <!-- Шаг 2: Детальный выбор услуг -->
+            <div class="step" id="step2">
+                <div class="step-header">
+                    <div class="step-title">Выберите детали</div>
+                    <div class="step-subtitle" id="detailSubtitle">Уточните параметры услуги</div>
+                </div>
+                <div class="detail-options" id="detailOptions"></div>
+                <div class="btn-group">
+                    <button class="btn btn-secondary" onclick="prevStep()">Назад</button>
+                    <button class="btn" onclick="nextStep()" id="detailNext" disabled>Далее</button>
+                </div>
+            </div>
+
+            <!-- Шаг 3: Выбор даты -->
+            <div class="step" id="step3">
+                <div class="step-header">
+                    <div class="step-title">Выберите дату</div>
+                    <div class="step-subtitle">Когда вам удобно?</div>
+                </div>
+                <div class="month-nav">
+                    <button onclick="changeMonth(-1)">‹</button>
+                    <div class="month-title" id="monthTitle"></div>
+                    <button onclick="changeMonth(1)">›</button>
+                </div>
+                <div class="calendar" id="calendar"></div>
+                <div class="btn-group">
+                    <button class="btn btn-secondary" onclick="prevStep()">Назад</button>
+                    <button class="btn" onclick="nextStep()" id="dateNext" disabled>Далее</button>
+                </div>
+            </div>
+
+            <!-- Шаг 4: Выбор времени -->
+            <div class="step" id="step4">
+                <div class="step-header">
+                    <div class="step-title">Выберите время</div>
+                    <div class="step-subtitle">Доступные слоты на <span id="selectedDateText"></span></div>
+                </div>
+                <div class="time-slots" id="timeSlots"></div>
+                <div class="btn-group">
+                    <button class="btn btn-secondary" onclick="prevStep()">Назад</button>
+                    <button class="btn" onclick="nextStep()" id="timeNext" disabled>Далее</button>
+                </div>
+            </div>
+
+            <!-- Шаг 5: Подтверждение -->
+            <div class="step" id="step5">
+                <div class="step-header">
+                    <div class="step-title">Подтверждение записи</div>
+                    <div class="step-subtitle">Проверьте данные</div>
+                </div>
+                <div class="summary" id="summary"></div>
+                <div class="btn-group">
+                    <button class="btn btn-secondary" onclick="prevStep()">Назад</button>
+                    <button class="btn" onclick="confirmBooking()">Подтвердить запись</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Индикатор загрузки -->
+        <div class="loading" id="loading" style="display: none;">
+            <div class="loading-spinner"></div>
+            <p>Загрузка...</p>
+        </div>
+    </div>
+
+    <script>
+        // Состояние приложения
+        let currentStep = 1;
+        let selectedService = '';
+        let selectedServiceDetail = '';
+        let selectedDate = '';
+        let selectedTime = '';
+        let currentMonth = new Date();
+
+        // Конфигурация API
+        const API_BASE_URL = 'https://api.manicure-appointments.shop';
+        let bookedSlots = {};
+
+        // Конфигурация услуг (загружается с сервера)
+        let serviceTypes = {};
+        let serviceNames = {};
+
+        const timeSlots = ['10:00', '12:00', '14:00', '16:00', '18:00'];
+
+        // Функции для работы с датами
+        function createLocalDate(dateString) {
+            const [year, month, day] = dateString.split('-').map(Number);
+            return new Date(year, month - 1, day);
+        }
+
+        function formatDateToString(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        // Функция показа/скрытия загрузки
+        function showLoading(show = true) {
+            const loading = document.getElementById('loading');
+            if (loading) {
+                loading.style.display = show ? 'flex' : 'none';
+            }
+        }
+
+        // Загрузка конфигурации услуг с сервера
+        async function loadServiceConfig() {
+            try {
+                showLoading(true);
+                const response = await fetch(`${API_BASE_URL}/service-config`);
+
+                if (!response.ok) {
+                    throw new Error('Не удалось загрузить конфигурацию услуг');
+                }
+
+                const config = await response.json();
+                serviceTypes = config.service_types || {};
+                serviceNames = config.service_names || {};
+
+                // Генерируем кнопки выбора основных услуг
+                generateServiceOptions();
+
+            } catch (error) {
+                console.error('Ошибка загрузки конфигурации услуг:', error);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Генерация кнопок основных услуг
+        function generateServiceOptions() {
+            const container = document.getElementById('serviceOptions');
+            container.innerHTML = '';
+
+            Object.entries(serviceTypes).forEach(([serviceType, serviceName]) => {
+                const serviceBtn = document.createElement('button');
+                serviceBtn.className = `service-btn ${serviceType}`;
+                serviceBtn.onclick = () => selectService(serviceType);
+
+                serviceBtn.innerHTML = `${serviceName}`;
+
+                container.appendChild(serviceBtn);
+            });
+        }
+
+        // Улучшенная функция получения Telegram ID
+        function getTelegramUserId() {
+            try {
+                if (!window.Telegram || !window.Telegram.WebApp) {
+                    console.warn('Telegram WebApp не доступен');
+                    return null;
+                }
+
+                const webApp = window.Telegram.WebApp;
+                let userId = null;
+
+                if (webApp.initDataUnsafe && webApp.initDataUnsafe.user) {
+                    userId = webApp.initDataUnsafe.user.id;
+                }
+
+                if (!userId && webApp.initData) {
+                    const urlParams = new URLSearchParams(webApp.initData);
+                    const userParam = urlParams.get('user');
+                    if (userParam) {
+                        try {
+                            const userObject = JSON.parse(decodeURIComponent(userParam));
+                            userId = userObject.id;
+                        } catch (e) {
+                            console.error('Ошибка парсинга user из initData:', e);
+                        }
+                    }
+                }
+
+                return userId;
+
+            } catch (error) {
+                console.error('Ошибка получения Telegram ID:', error);
+                return null;
+            }
+        }
+
+        // Инициализация приложения
+        async function initializeApp() {
+            if (window.Telegram && window.Telegram.WebApp) {
+                const webApp = window.Telegram.WebApp;
+
+                webApp.ready();
+                webApp.expand();
+
+                webApp.MainButton.text = "Подтвердить запись";
+                webApp.MainButton.hide();
+
+                const userId = getTelegramUserId();
+                if (!userId) {
+                    console.warn('Не удалось получить ID пользователя');
+                }
+
+                updateProgress();
+
+                // Загружаем конфигурацию услуг и занятые слоты параллельно
+                await Promise.all([
+                    loadServiceConfig(),
+                    loadBookedSlots()
+                ]);
+
+            } else {
+                setTimeout(initializeApp, 100);
+            }
+        }
+
+        // Запуск инициализации после загрузки DOM
+        document.addEventListener('DOMContentLoaded', initializeApp);
+
+        // Загрузка занятых слотов с сервера
+        async function loadBookedSlots() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/booked-slots`);
+                if (response.ok) {
+                    bookedSlots = await response.json();
+                }
+            } catch (error) {
+                console.error('Ошибка загрузки занятых слотов:', error);
+            }
+            generateCalendar();
+        }
+
+        function selectService(service) {
+            selectedService = service;
+            generateDetailOptions();
+            nextStep();
+        }
+
+        function generateDetailOptions() {
+            const container = document.getElementById('detailOptions');
+            const subtitle = document.getElementById('detailSubtitle');
+            const details = serviceNames[selectedService];
+
+            if (!details) return;
+
+            subtitle.textContent = details.title || 'Выберите детали услуги';
+            container.innerHTML = '';
+
+            const options = details.options || Object.entries(details)
+                .filter(([key]) => key !== 'title')
+                .map(([id, data]) => ({ id, ...data }));
+
+            options.forEach(option => {
+                const optionBtn = document.createElement('button');
+                optionBtn.className = 'service-btn detail-option';
+                optionBtn.onclick = () => selectServiceDetail(option.id, optionBtn);
+
+                optionBtn.innerHTML = `
+                    <div class="service-info">
+                        <div class="service-name">${option.name}</div>
+                        <div class="service-description">${option.description}</div>
+                        <div class="service-details">
+                            <span class="service-price">${option.price} ₽</span>
+                        </div>
+                    </div>
+                `;
+
+                container.appendChild(optionBtn);
+            });
+        }
+
+        function selectServiceDetail(detailId, element) {
+            document.querySelectorAll('.detail-option.selected').forEach(el => {
+                el.classList.remove('selected');
+            });
+
+            selectedServiceDetail = detailId;
+            element.classList.add('selected');
+            document.getElementById('detailNext').disabled = false;
+        }
+
+        function nextStep() {
+            const maxSteps = 5;
+            if (currentStep < maxSteps) {
+                document.getElementById(`step${currentStep}`).classList.remove('active');
+                currentStep++;
+                document.getElementById(`step${currentStep}`).classList.add('active');
+                updateProgress();
+
+                if (currentStep === 4) {
+                    generateTimeSlots();
+                } else if (currentStep === 5) {
+                    generateSummary();
+                    if (window.Telegram && window.Telegram.WebApp) {
+                        window.Telegram.WebApp.MainButton.onClick(confirmBooking);
+                    }
+                }
+            }
+        }
+
+        function prevStep() {
+            if (currentStep > 1) {
+                document.getElementById(`step${currentStep}`).classList.remove('active');
+                currentStep--;
+                document.getElementById(`step${currentStep}`).classList.add('active');
+                updateProgress();
+
+                if (currentStep < 5 && window.Telegram && window.Telegram.WebApp) {
+                    window.Telegram.WebApp.MainButton.hide();
+                }
+            }
+        }
+
+        function updateProgress() {
+            const progress = (currentStep - 1) * 25;
+            document.getElementById('progressFill').style.width = progress + '%';
+        }
+
+        function changeMonth(direction) {
+            currentMonth.setMonth(currentMonth.getMonth() + direction);
+            generateCalendar();
+        }
+
+        function generateCalendar() {
+            const calendar = document.getElementById('calendar');
+            const monthTitle = document.getElementById('monthTitle');
+
+            const months = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
+                      'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+
+            monthTitle.textContent = `${months[currentMonth.getMonth()]} ${currentMonth.getFullYear()}`;
+
+            calendar.innerHTML = '';
+
+            const dayHeaders = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+            dayHeaders.forEach(day => {
+                const header = document.createElement('div');
+                header.className = 'calendar-header';
+                header.textContent = day;
+                calendar.appendChild(header);
+            });
+
+            const firstDay = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
+            const startDate = new Date(firstDay);
+
+            const dayOffset = (firstDay.getDay() + 6) % 7;
+            startDate.setDate(startDate.getDate() - dayOffset);
+
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            for (let i = 0; i < 42; i++) {
+                const date = new Date(startDate);
+                date.setDate(startDate.getDate() + i);
+
+                const dayBtn = document.createElement('button');
+                dayBtn.className = 'calendar-day';
+                dayBtn.textContent = date.getDate();
+
+                const dateStr = formatDateToString(date);
+                const dateForComparison = new Date(date);
+                dateForComparison.setHours(0, 0, 0, 0);
+
+                if (dateForComparison <= today) {
+                    dayBtn.classList.add('disabled');
+                    dayBtn.disabled = true;
+                    dayBtn.title = 'Дата уже прошла';
+                } else if (date.getMonth() !== currentMonth.getMonth()) {
+                    dayBtn.classList.add('disabled');
+                    dayBtn.disabled = true;
+                } else if (bookedSlots[dateStr] && bookedSlots[dateStr].length >= 2) {
+                    dayBtn.classList.add('unavailable');
+                    dayBtn.disabled = true;
+                    dayBtn.title = 'Все слоты заняты';
+                } else {
+                    dayBtn.onclick = () => selectDate(dateStr);
+                    dayBtn.disabled = false;
+                }
+
+                if (selectedDate === dateStr) {
+                    dayBtn.classList.add('selected');
+                }
+
+                calendar.appendChild(dayBtn);
+            }
+        }
+
+        function selectDate(dateStr) {
+            document.querySelectorAll('.calendar-day.selected').forEach(el => {
+                el.classList.remove('selected');
+            });
+
+            selectedDate = dateStr;
+            event.target.classList.add('selected');
+
+            document.getElementById('dateNext').disabled = false;
+
+            const date = createLocalDate(dateStr);
+            const options = { day: 'numeric', month: 'long', weekday: 'long' };
+            document.getElementById('selectedDateText').textContent =
+                date.toLocaleDateString('ru', options);
+        }
+
+        async function generateTimeSlots() {
+            const container = document.getElementById('timeSlots');
+            container.innerHTML = '';
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/available-slots/${selectedDate}`);
+                if (!response.ok) throw new Error('Ошибка загрузки слотов');
+
+                const data = await response.json();
+                const availableSlots = data.available_slots || [];
+
+                timeSlots.forEach(time => {
+                    const slot = document.createElement('button');
+                    slot.className = 'time-slot';
+                    slot.textContent = time;
+
+                    if (!availableSlots.includes(time)) {
+                        slot.classList.add('unavailable');
+                        slot.title = 'Время занято';
+                    } else {
+                        slot.onclick = () => selectTime(time, slot);
+                    }
+
+                    container.appendChild(slot);
+                });
+            } catch (error) {
+                console.error('Ошибка генерации слотов времени:', error);
+                const bookedForDate = bookedSlots[selectedDate] || [];
+
+                timeSlots.forEach(time => {
+                    const slot = document.createElement('button');
+                    slot.className = 'time-slot';
+                    slot.textContent = time;
+
+                    if (bookedForDate.includes(time)) {
+                        slot.classList.add('unavailable');
+                        slot.title = 'Время занято';
+                    } else {
+                        slot.onclick = () => selectTime(time, slot);
+                    }
+
+                    container.appendChild(slot);
+                });
+            }
+        }
+
+        function selectTime(time, element) {
+            document.querySelectorAll('.time-slot.selected').forEach(el => {
+                el.classList.remove('selected');
+            });
+
+            selectedTime = time;
+            element.classList.add('selected');
+            document.getElementById('timeNext').disabled = false;
+        }
+
+        function getSelectedServiceInfo() {
+            const serviceConfig = serviceNames[selectedService];
+            if (!serviceConfig) return null;
+
+            // Поддержка разных форматов данных с сервера
+            const options = serviceConfig.options || Object.entries(serviceConfig)
+                .filter(([key]) => key !== 'title')
+                .map(([id, data]) => ({ id, ...data }));
+
+            return options.find(option => option.id === selectedServiceDetail);
+        }
+
+        function generateSummary() {
+            const summary = document.getElementById('summary');
+            const serviceInfo = getSelectedServiceInfo();
+
+            if (!serviceInfo) return;
+
+            const date = createLocalDate(selectedDate);
+            const dateStr = date.toLocaleDateString('ru', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric',
+                weekday: 'long'
+            });
+
+            summary.innerHTML = `
+                <div class="summary-item">
+                    <span class="summary-label">Услуга:</span>
+                    <span class="summary-value">${serviceInfo.name}</span>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label">Описание:</span>
+                    <span class="summary-value">${serviceInfo.description}</span>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label">Дата:</span>
+                    <span class="summary-value">${dateStr}</span>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label">Время:</span>
+                    <span class="summary-value">${selectedTime}</span>
+                </div>
+                <div class="summary-item">
+                    <span class="summary-label">Стоимость:</span>
+                    <span class="summary-value">${serviceInfo.price} ₽</span>
+                </div>
+            `;
+        }
+
+        async function confirmBooking() {
+            try {
+                const telegramId = getTelegramUserId();
+
+                if (!telegramId) {
+                    const errorInfo = `
+                        Не удалось получить ID пользователя Telegram.
+
+                        Убедитесь, что:
+                        1. Приложение запущено через Telegram бота
+                        2. Используется встроенная клавиатура бота
+                        3. Приложение не обновлялось вручную в браузере
+                    `;
+
+                    if (window.Telegram && window.Telegram.WebApp) {
+                        window.Telegram.WebApp.showAlert(errorInfo);
+                    } else {
+                        alert(errorInfo);
+                    }
+                    return;
+                }
+
+                const serviceInfo = getSelectedServiceInfo();
+
+                const bookingData = {
+                    telegram_id: telegramId,
+                    service_type: selectedService,
+                    service_detail: selectedServiceDetail,
+                    service_name: serviceInfo.name,
+                    service_price: serviceInfo.price,
+                    appointment_date: selectedDate,
+                    appointment_time: selectedTime
+                };
+
+                const response = await fetch(`${API_BASE_URL}/appointments`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(bookingData)
+                });
+
+                if (!response.ok) {
+                    throw new Error('Ошибка создания записи');
+                }
+
+                const result = await response.json();
+
+                if (window.Telegram && window.Telegram.WebApp) {
+                    window.Telegram.WebApp.sendData(JSON.stringify({
+                        action: 'booking_confirmed',
+                        appointment_id: result.appointment_id,
+                        ...bookingData
+                    }));
+
+                    window.Telegram.WebApp.showAlert('Запись успешно создана!');
+                    window.Telegram.WebApp.close();
+                }
+
+            } catch (error) {
+                console.error('Ошибка подтверждения записи:', error);
+
+                const errorMessage = `Произошла ошибка: ${error.message}`;
+
+                if (window.Telegram && window.Telegram.WebApp) {
+                    window.Telegram.WebApp.showAlert(errorMessage);
+                } else {
+                    alert(errorMessage);
+                }
+            }
+        }
+    </script>
+</body>
+
+</html>
