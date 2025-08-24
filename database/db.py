@@ -95,12 +95,10 @@ class AppointmentRepository:
         async with self.db_manager.get_connection() as conn:
             all_slots = ["10:00", "12:00", "14:00", "16:00", "18:00"]
             query = """
-                    SELECT appointment_time, COUNT(*) as count
+                    SELECT DISTINCT appointment_time
                     FROM appointments
                     WHERE appointment_date = $1
                       AND status != 'cancelled'
-                    GROUP BY appointment_time
-                    HAVING COUNT(*) >= 1
                     """
 
             rows = await conn.fetch(query, target_date)
@@ -116,7 +114,7 @@ class AppointmentRepository:
         """Проверка доступности слота"""
         async with self.db_manager.get_connection() as conn:
             query = """
-                    SELECT COUNT(*) as count
+                    SELECT COUNT(id) as count
                     FROM appointments
                     WHERE appointment_date = $1
                     AND appointment_time = $2
